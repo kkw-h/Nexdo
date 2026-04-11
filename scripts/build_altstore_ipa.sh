@@ -10,21 +10,24 @@ if ! command -v flutter >/dev/null 2>&1; then
 fi
 
 flutter pub get
-flutter build ipa --release --no-codesign
+flutter build ios --release --no-codesign
 
-OUTPUT_DIR="$ROOT_DIR/build/altstore"
-mkdir -p "$OUTPUT_DIR"
-IPA_SRC="$ROOT_DIR/build/ios/ipa/Runner.ipa"
-IPA_DST="$OUTPUT_DIR/Nexdo-AltStore.ipa"
-
-if [ ! -f "$IPA_SRC" ]; then
-  echo "[AltStore] 构建成功但未找到 Runner.ipa，Flutter 版本可能发生变化，请检查" >&2
+APP_PATH="$ROOT_DIR/build/ios/iphoneos/Runner.app"
+if [ ! -d "$APP_PATH" ]; then
+  echo "[AltStore] 未找到 Runner.app，构建失败" >&2
   exit 1
 fi
 
-cp "$IPA_SRC" "$IPA_DST"
+OUTPUT_DIR="$ROOT_DIR/build/altstore"
+PAYLOAD_DIR="$OUTPUT_DIR/Payload"
+mkdir -p "$PAYLOAD_DIR"
+rm -rf "$PAYLOAD_DIR/Runner.app"
+cp -R "$APP_PATH" "$PAYLOAD_DIR/Runner.app"
+
+(cd "$OUTPUT_DIR" && zip -r Nexdo-AltStore.ipa Payload >/dev/null)
+rm -rf "$PAYLOAD_DIR"
 
 cat <<MSG
-[AltStore] 构建完成：$IPA_DST
-可将该文件导入 AltStore (My Apps -> +) 进行安装，AltStore 会在安装时重新签名。
+[AltStore] 构建完成：$OUTPUT_DIR/Nexdo-AltStore.ipa
+将该文件拖入 AltStore (My Apps -> +) 即可安装，AltStore 会在安装时重新签名。
 MSG

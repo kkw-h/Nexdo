@@ -13,8 +13,9 @@
 项目根目录已经提供脚本 `scripts/build_altstore_ipa.sh`，它会：
 
 1. 运行 `flutter pub get`
-2. 执行 `flutter build ipa --release --no-codesign`
-3. 将生成的 `Runner.ipa` 复制并重命名到 `build/altstore/Nexdo-AltStore.ipa`
+2. 执行 `flutter build ios --release --no-codesign`
+3. 将 `build/ios/iphoneos/Runner.app` 包装成 `Payload/Runner.app`
+4. 压缩生成 `build/altstore/Nexdo-AltStore.ipa`
 
 命令：
 

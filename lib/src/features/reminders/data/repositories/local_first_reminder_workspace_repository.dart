@@ -90,7 +90,12 @@ class LocalFirstReminderWorkspaceRepository
   }
 
   @override
-  Future<ReminderWorkspace> saveReminder(ReminderItem reminder) async {
+  Future<ReminderWorkspace> refreshWorkspace() async {
+    return fetchWorkspace();
+  }
+
+  @override
+  Future<ReminderSaveResult> saveReminder(ReminderItem reminder) async {
     final workspace = await fetchWorkspace();
     final reminders = [...workspace.reminders];
     final index = reminders.indexWhere((item) => item.id == reminder.id);
@@ -101,7 +106,7 @@ class LocalFirstReminderWorkspaceRepository
     }
     final updated = _sortWorkspace(workspace.copyWith(reminders: reminders));
     await _localDataSource.writeWorkspace(updated);
-    return updated;
+    return ReminderSaveResult(workspace: updated, reminder: reminder);
   }
 
   @override

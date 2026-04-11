@@ -35,12 +35,24 @@ class ReminderController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> refresh() async {
+    _workspace = await _repository.refreshWorkspace();
+    await _notificationService.syncAll(_workspace.reminders);
+    notifyListeners();
+  }
+
   List<ReminderItem> remindersFor(ReminderFilter filter) {
     switch (filter) {
       case ReminderFilter.today:
-        return _workspace.reminders
-            .where((item) => !item.isCompleted && item.isDueToday)
-            .toList();
+        final todays =
+            _workspace.reminders.where((item) => item.isDueToday).toList();
+        todays.sort((a, b) {
+          if (a.isCompleted != b.isCompleted) {
+            return a.isCompleted ? 1 : -1;
+          }
+          return a.dueAt.compareTo(b.dueAt);
+        });
+        return todays;
       case ReminderFilter.upcoming:
         return _workspace.reminders
             .where((item) => !item.isCompleted && !item.isDueToday)
@@ -83,8 +95,9 @@ class ReminderController extends ChangeNotifier {
   }
 
   Future<void> saveReminder(ReminderItem reminder) async {
-    _workspace = await _repository.saveReminder(reminder);
-    await _notificationService.scheduleForReminder(reminder);
+    final result = await _repository.saveReminder(reminder);
+    _workspace = result.workspace;
+    await _notificationService.scheduleForReminder(result.reminder);
     notifyListeners();
   }
 

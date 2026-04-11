@@ -1,0 +1,386 @@
+import 'package:nexdo/src/core/network/api_client.dart';
+import 'package:nexdo/src/core/network/api_exception.dart';
+import 'package:nexdo/src/features/auth/data/auth_repository.dart'
+    show AccessTokenProvider, AuthException;
+import 'package:nexdo/src/features/reminders/data/datasources/reminder_local_data_source.dart';
+import 'package:nexdo/src/features/reminders/domain/entities/reminder_models.dart';
+import 'package:nexdo/src/features/reminders/domain/repositories/reminder_workspace_repository.dart';
+
+class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
+  RemoteReminderWorkspaceRepository(
+    this._apiClient,
+    this._tokenProvider,
+    this._localDataSource,
+  );
+
+  final NexdoApiClient _apiClient;
+  final AccessTokenProvider _tokenProvider;
+  final ReminderLocalDataSource _localDataSource;
+
+  ReminderWorkspace? _cache;
+
+  @override
+  Future<ReminderWorkspace> fetchWorkspace() async {
+    if (_cache != null) {
+      return _cache!;
+    }
+    final local = await _localDataSource.readWorkspace();
+    if (local != null) {
+      _cache = _sortWorkspace(local);
+      return _cache!;
+    }
+    return seedIfEmpty();
+  }
+
+  @override
+  Future<ReminderWorkspace> seedIfEmpty() async {
+    try {
+      return await _refreshWorkspace();
+    } on AuthException {
+      rethrow;
+    } catch (_) {
+      final local = await _localDataSource.readWorkspace();
+      if (local != null) {
+        _cache = _sortWorkspace(local);
+        return _cache!;
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<ReminderWorkspace> refreshWorkspace() async {
+    return _refreshWorkspace();
+  }
+
+  @override
+  Future<ReminderSaveResult> saveReminder(ReminderItem reminder) async {
+    final workspace = await _ensureWorkspace();
+    final exists = workspace.reminders.any((item) => item.id == reminder.id);
+    final path = exists ? '/reminders/${reminder.id}' : '/reminders';
+    final method = exists ? 'PATCH' : 'POST';
+    final data =
+        await _authorizedRequest(
+              method: method,
+              path: path,
+              body: _reminderPayload(reminder),
+            )
+            as Map<String, dynamic>?;
+    if (data == null) {
+      throw const AuthException('保存提醒失败');
+    }
+    final saved = _mapReminder(data);
+    final updatedReminders = [...workspace.reminders];
+    if (exists) {
+      final index = updatedReminders.indexWhere((item) => item.id == saved.id);
+      if (index != -1) {
+        updatedReminders[index] = saved;
+      }
+    } else {
+      updatedReminders.removeWhere((item) => item.id == reminder.id);
+      updatedReminders.add(saved);
+    }
+    final updatedWorkspace = workspace.copyWith(reminders: updatedReminders);
+    final persisted = await _updateWorkspace(updatedWorkspace);
+    return ReminderSaveResult(workspace: persisted, reminder: saved);
+  }
+
+  @override
+  Future<ReminderWorkspace> deleteReminder(String id) async {
+    await _authorizedRequest(method: 'DELETE', path: '/reminders/$id');
+    final workspace = await _ensureWorkspace();
+    final updated = workspace.copyWith(
+      reminders: workspace.reminders.where((item) => item.id != id).toList(),
+    );
+    return _updateWorkspace(updated);
+  }
+
+  @override
+  Future<ReminderWorkspace> saveList(ReminderList list) async {
+    final workspace = await _ensureWorkspace();
+    final exists = workspace.lists.any((item) => item.id == list.id);
+    final data =
+        await _authorizedRequest(
+              method: exists ? 'PATCH' : 'POST',
+              path: exists ? '/lists/${list.id}' : '/lists',
+              body: _listPayload(list),
+            )
+            as Map<String, dynamic>?;
+    if (data == null) {
+      throw const AuthException('保存清单失败');
+    }
+    final saved = _mapList(data);
+    final lists = [...workspace.lists];
+    if (exists) {
+      final index = lists.indexWhere((item) => item.id == saved.id);
+      if (index != -1) {
+        lists[index] = saved;
+      }
+    } else {
+      lists.removeWhere((item) => item.id == list.id);
+      lists.add(saved);
+    }
+    final updatedWorkspace = workspace.copyWith(lists: _sortLists(lists));
+    return _updateWorkspace(updatedWorkspace);
+  }
+
+  @override
+  Future<ReminderWorkspace> saveGroup(ReminderGroup group) async {
+    final workspace = await _ensureWorkspace();
+    final exists = workspace.groups.any((item) => item.id == group.id);
+    final data =
+        await _authorizedRequest(
+              method: exists ? 'PATCH' : 'POST',
+              path: exists ? '/groups/${group.id}' : '/groups',
+              body: _groupPayload(group),
+            )
+            as Map<String, dynamic>?;
+    if (data == null) {
+      throw const AuthException('保存分组失败');
+    }
+    final saved = _mapGroup(data);
+    final groups = [...workspace.groups];
+    if (exists) {
+      final index = groups.indexWhere((item) => item.id == saved.id);
+      if (index != -1) {
+        groups[index] = saved;
+      }
+    } else {
+      groups.removeWhere((item) => item.id == group.id);
+      groups.add(saved);
+    }
+    final updatedWorkspace = workspace.copyWith(groups: _sortGroups(groups));
+    return _updateWorkspace(updatedWorkspace);
+  }
+
+  @override
+  Future<ReminderWorkspace> saveTag(ReminderTag tag) async {
+    final workspace = await _ensureWorkspace();
+    final exists = workspace.tags.any((item) => item.id == tag.id);
+    final data =
+        await _authorizedRequest(
+              method: exists ? 'PATCH' : 'POST',
+              path: exists ? '/tags/${tag.id}' : '/tags',
+              body: _tagPayload(tag),
+            )
+            as Map<String, dynamic>?;
+    if (data == null) {
+      throw const AuthException('保存标签失败');
+    }
+    final saved = _mapTag(data);
+    final tags = [...workspace.tags];
+    if (exists) {
+      final index = tags.indexWhere((item) => item.id == saved.id);
+      if (index != -1) {
+        tags[index] = saved;
+      }
+    } else {
+      tags.removeWhere((item) => item.id == tag.id);
+      tags.add(saved);
+    }
+    final updatedWorkspace = workspace.copyWith(tags: _sortTags(tags));
+    return _updateWorkspace(updatedWorkspace);
+  }
+
+  Future<ReminderWorkspace> _ensureWorkspace() async {
+    if (_cache != null) {
+      return _cache!;
+    }
+    final local = await _localDataSource.readWorkspace();
+    if (local != null) {
+      _cache = _sortWorkspace(local);
+      return _cache!;
+    }
+    return _refreshWorkspace();
+  }
+
+  Future<ReminderWorkspace> _refreshWorkspace() async {
+    final data =
+        await _authorizedRequest(method: 'GET', path: '/sync/bootstrap')
+            as Map<String, dynamic>?;
+    if (data == null) {
+      throw const AuthException('获取提醒数据失败');
+    }
+    final workspace = _mapWorkspace(data);
+    _cache = _sortWorkspace(workspace);
+    await _localDataSource.writeWorkspace(_cache!);
+    return _cache!;
+  }
+
+  Future<dynamic> _authorizedRequest({
+    required String method,
+    required String path,
+    Map<String, dynamic>? body,
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    final token = await _tokenProvider.requireAccessToken();
+    try {
+      return await _apiClient.request(
+        method: method,
+        path: path,
+        body: body,
+        queryParameters: queryParameters,
+        accessToken: token,
+      );
+    } on ApiException catch (error) {
+      throw AuthException(error.message ?? '接口调用失败');
+    }
+  }
+
+  Future<ReminderWorkspace> _updateWorkspace(
+    ReminderWorkspace workspace,
+  ) async {
+    _cache = _sortWorkspace(workspace);
+    await _localDataSource.writeWorkspace(_cache!);
+    return _cache!;
+  }
+
+  ReminderWorkspace _mapWorkspace(Map<String, dynamic> data) {
+    final lists = (data['lists'] as List<dynamic>? ?? [])
+        .map((item) => _mapList(item as Map<String, dynamic>))
+        .toList();
+    final groups = (data['groups'] as List<dynamic>? ?? [])
+        .map((item) => _mapGroup(item as Map<String, dynamic>))
+        .toList();
+    final tags = (data['tags'] as List<dynamic>? ?? [])
+        .map((item) => _mapTag(item as Map<String, dynamic>))
+        .toList();
+    final reminders = (data['reminders'] as List<dynamic>? ?? [])
+        .map((item) => _mapReminder(item as Map<String, dynamic>))
+        .toList();
+    return ReminderWorkspace(
+      reminders: reminders,
+      lists: lists,
+      groups: groups,
+      tags: tags,
+    );
+  }
+
+  ReminderList _mapList(Map<String, dynamic> map) {
+    return ReminderList(
+      id: map['id'] as String,
+      name: map['name'] as String,
+      colorValue: (map['color_value'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  ReminderGroup _mapGroup(Map<String, dynamic> map) {
+    return ReminderGroup(
+      id: map['id'] as String,
+      name: map['name'] as String,
+      iconCodePoint: (map['icon_code_point'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  ReminderTag _mapTag(Map<String, dynamic> map) {
+    return ReminderTag(
+      id: map['id'] as String,
+      name: map['name'] as String,
+      colorValue: (map['color_value'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  ReminderItem _mapReminder(Map<String, dynamic> map) {
+    DateTime parseDate(String key) {
+      final value = map[key] as String;
+      final normalized = value.replaceFirst(
+        RegExp(r'(Z|[+-]\d{2}:\d{2})$'),
+        '',
+      );
+      return DateTime.parse(normalized);
+    }
+
+    return ReminderItem(
+      id: map['id'] as String,
+      title: map['title'] as String,
+      note: map['note'] as String?,
+      dueAt: parseDate('due_at'),
+      isCompleted: map['is_completed'] as bool? ?? false,
+      createdAt: parseDate('created_at'),
+      updatedAt: parseDate('updated_at'),
+      listId: map['list_id'] as String,
+      groupId: map['group_id'] as String,
+      tagIds: (map['tag_ids'] as List<dynamic>? ?? []).cast<String>(),
+      notificationEnabled: map['notification_enabled'] as bool? ?? true,
+      repeatRule: ReminderRepeatRuleX.fromStorage(
+        map['repeat_rule'] as String?,
+      ),
+    );
+  }
+
+  Map<String, dynamic> _reminderPayload(ReminderItem reminder) {
+    String formatDate(DateTime dateTime) {
+      final naive = DateTime(
+        dateTime.year,
+        dateTime.month,
+        dateTime.day,
+        dateTime.hour,
+        dateTime.minute,
+        dateTime.second,
+        dateTime.millisecond,
+        dateTime.microsecond,
+      );
+      final iso = naive.toIso8601String();
+      final trimmed = iso.endsWith('Z')
+          ? iso.substring(0, iso.length - 1)
+          : iso;
+      return '$trimmed+08:00';
+    }
+
+    return {
+      'title': reminder.title,
+      'note': reminder.note,
+      'due_at': formatDate(reminder.dueAt),
+      'list_id': reminder.listId,
+      'group_id': reminder.groupId,
+      'tag_ids': reminder.tagIds,
+      'notification_enabled': reminder.notificationEnabled,
+      'repeat_rule': reminder.repeatRule.storageValue,
+      'is_completed': reminder.isCompleted,
+    };
+  }
+
+  Map<String, dynamic> _listPayload(ReminderList list) {
+    return {'name': list.name, 'color_value': list.colorValue, 'sort_order': 0};
+  }
+
+  Map<String, dynamic> _groupPayload(ReminderGroup group) {
+    return {
+      'name': group.name,
+      'icon_code_point': group.iconCodePoint,
+      'sort_order': 0,
+    };
+  }
+
+  Map<String, dynamic> _tagPayload(ReminderTag tag) {
+    return {'name': tag.name, 'color_value': tag.colorValue};
+  }
+
+  ReminderWorkspace _sortWorkspace(ReminderWorkspace workspace) {
+    final reminders = [...workspace.reminders]
+      ..sort((a, b) {
+        if (a.isCompleted != b.isCompleted) {
+          return a.isCompleted ? 1 : -1;
+        }
+        return a.dueAt.compareTo(b.dueAt);
+      });
+    return workspace.copyWith(
+      reminders: reminders,
+      lists: _sortLists(workspace.lists),
+      groups: _sortGroups(workspace.groups),
+      tags: _sortTags(workspace.tags),
+    );
+  }
+
+  List<ReminderList> _sortLists(List<ReminderList> items) {
+    return [...items]..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  List<ReminderGroup> _sortGroups(List<ReminderGroup> items) {
+    return [...items]..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  List<ReminderTag> _sortTags(List<ReminderTag> items) {
+    return [...items]..sort((a, b) => a.name.compareTo(b.name));
+  }
+}

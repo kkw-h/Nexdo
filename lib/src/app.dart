@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'features/reminders/presentation/reminder_app_shell.dart';
+import 'features/auth/presentation/auth_gate.dart';
 
 class NexdoApp extends StatelessWidget {
   const NexdoApp({super.key});
@@ -53,7 +53,7 @@ class NexdoApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const ReminderAppShell(),
+      home: const AuthGate(),
     );
   }
 }

@@ -5,15 +5,30 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
 
+import '../../auth/data/auth_repository.dart'
+    show AuthRepository, AuthException;
+import '../../auth/domain/auth_user.dart';
+import 'package:nexdo/src/core/network/api_client.dart';
 import '../application/reminder_notification_service.dart';
 import '../data/datasources/reminder_local_data_source.dart';
-import '../data/repositories/local_first_reminder_workspace_repository.dart';
+import '../data/repositories/remote_reminder_workspace_repository.dart';
 import '../domain/entities/reminder_models.dart';
 import 'reminder_controller.dart';
 import 'reminder_form_page.dart';
 
 class ReminderAppShell extends StatefulWidget {
-  const ReminderAppShell({super.key});
+  const ReminderAppShell({
+    super.key,
+    required this.currentUser,
+    required this.authRepository,
+    required this.apiClient,
+    required this.onLogout,
+  });
+
+  final AuthUser currentUser;
+  final AuthRepository authRepository;
+  final NexdoApiClient apiClient;
+  final Future<void> Function() onLogout;
 
   @override
   State<ReminderAppShell> createState() => _ReminderAppShellState();
@@ -25,6 +40,8 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
   int _selectedNavIndex = 0;
   DateTime _selectedDate = DateTime.now();
   DateTime _focusedDate = DateTime.now();
+  String? _error;
+  bool _refreshing = false;
 
   @override
   void initState() {
@@ -39,30 +56,76 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
   }
 
   Future<void> _initialize() async {
-    await initializeDateFormatting('zh_CN');
-    final preferences = await SharedPreferences.getInstance();
-    final repository = LocalFirstReminderWorkspaceRepository(
-      ReminderLocalDataSource(preferences),
-    );
-    final notificationService = ReminderNotificationService(
-      FlutterLocalNotificationsPlugin(),
-    );
-    await notificationService.initialize();
-    final controller = ReminderController(repository, notificationService);
-    await controller.bootstrap();
-
-    if (!mounted) {
-      return;
-    }
-
     setState(() {
-      _controller = controller;
+      _error = null;
+      _controller = null;
     });
+    await initializeDateFormatting('zh_CN');
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final repository = RemoteReminderWorkspaceRepository(
+        widget.apiClient,
+        widget.authRepository,
+        ReminderLocalDataSource(preferences),
+      );
+      final notificationService = ReminderNotificationService(
+        FlutterLocalNotificationsPlugin(),
+      );
+      await notificationService.initialize();
+      final controller = ReminderController(repository, notificationService);
+      await controller.bootstrap();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _controller = controller;
+      });
+    } on AuthException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = error.message;
+      });
+      await widget.onLogout();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = '加载提醒数据失败，请检查网络后重试。';
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
+    if (_error != null) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.cloud_off_rounded, size: 48),
+                const SizedBox(height: 12),
+                Text(
+                  _error!,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                FilledButton(onPressed: _initialize, child: const Text('重试加载')),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     if (controller == null || controller.isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -149,6 +212,10 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                       onOpenCalendar: () => _openCalendarPage(controller),
                       showCalendarButton:
                           _selectedNavIndex == 0 || _selectedNavIndex == 1,
+                      onRefresh: _refreshing
+                          ? null
+                          : () => _refreshData(controller),
+                      isRefreshing: _refreshing,
                     ),
                     const SizedBox(height: 16),
                     Expanded(
@@ -165,6 +232,41 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
         );
       },
     );
+  }
+
+  Future<void> _refreshData(ReminderController controller) async {
+    setState(() {
+      _refreshing = true;
+    });
+    try {
+      await controller.refresh();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已刷新最新数据')));
+    } on AuthException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('刷新失败，请稍后再试')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _refreshing = false;
+        });
+      }
+    }
   }
 
   Widget _buildInboxView(
@@ -210,156 +312,26 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     );
   }
 
-  Widget _buildCalendarView(
-    ReminderController controller,
-    List<ReminderItem> selectedDateItems,
-  ) {
-    final reminderCounts = _buildReminderCountMap(controller.reminders);
-
-    return ListView(
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: TableCalendar<int>(
-              locale: 'zh_CN',
-              firstDay: DateTime.now().subtract(const Duration(days: 365)),
-              lastDay: DateTime.now().add(const Duration(days: 3650)),
-              focusedDay: _focusedDate,
-              selectedDayPredicate: (day) => isSameDay(day, _selectedDate),
-              eventLoader: (day) {
-                final count = reminderCounts[_dateKey(day)] ?? 0;
-                if (count == 0) {
-                  return const [];
-                }
-                return List<int>.filled(count, 1);
-              },
-              calendarFormat: CalendarFormat.month,
-              availableCalendarFormats: const {CalendarFormat.month: '月'},
-              headerStyle: HeaderStyle(
-                titleCentered: true,
-                formatButtonVisible: false,
-                titleTextFormatter: (date, locale) =>
-                    DateFormat('yyyy年M月', locale).format(date),
-                titleTextStyle: Theme.of(
-                  context,
-                ).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w800),
-                leftChevronIcon: const Icon(Icons.chevron_left_rounded),
-                rightChevronIcon: const Icon(Icons.chevron_right_rounded),
-              ),
-              daysOfWeekStyle: DaysOfWeekStyle(
-                weekendStyle: Theme.of(context).textTheme.bodySmall!.copyWith(
-                  color: const Color(0xFF7A8A84),
-                  fontWeight: FontWeight.w700,
-                ),
-                weekdayStyle: Theme.of(context).textTheme.bodySmall!.copyWith(
-                  color: const Color(0xFF7A8A84),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              calendarStyle: const CalendarStyle(
-                outsideDaysVisible: false,
-                defaultDecoration: BoxDecoration(),
-                weekendDecoration: BoxDecoration(),
-                todayDecoration: BoxDecoration(),
-                selectedDecoration: BoxDecoration(),
-                cellMargin: EdgeInsets.all(6),
-              ),
-              onDaySelected: (selectedDay, focusedDay) {
-                setState(() {
-                  _selectedDate = selectedDay;
-                  _focusedDate = focusedDay;
-                });
-              },
-              onPageChanged: (focusedDay) {
-                setState(() {
-                  _focusedDate = focusedDay;
-                });
-              },
-              calendarBuilders: CalendarBuilders(
-                defaultBuilder: (context, day, focusedDay) {
-                  return _CalendarDayCell(
-                    day: day,
-                    count: reminderCounts[_dateKey(day)] ?? 0,
-                    isSelected: false,
-                    isToday: isSameDay(day, DateTime.now()),
-                  );
-                },
-                todayBuilder: (context, day, focusedDay) {
-                  return _CalendarDayCell(
-                    day: day,
-                    count: reminderCounts[_dateKey(day)] ?? 0,
-                    isSelected: false,
-                    isToday: true,
-                  );
-                },
-                selectedBuilder: (context, day, focusedDay) {
-                  return _CalendarDayCell(
-                    day: day,
-                    count: reminderCounts[_dateKey(day)] ?? 0,
-                    isSelected: true,
-                    isToday: isSameDay(day, DateTime.now()),
-                  );
-                },
-                outsideBuilder: (context, day, focusedDay) =>
-                    const SizedBox.shrink(),
-                markerBuilder: (context, day, events) =>
-                    const SizedBox.shrink(),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        _SectionTitle(
-          title: DateFormat('M月d日 EEEE', 'zh_CN').format(_selectedDate),
-          subtitle: '按时间查看这一天的提醒安排',
-        ),
-        const SizedBox(height: 12),
-        if (selectedDateItems.isEmpty)
-          const _EmptyPanel(
-            title: '这一天没有提醒',
-            subtitle: '你可以从这里提前规划节奏，时间线会自动联动。',
-          )
-        else
-          ...selectedDateItems.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _TimelineTile(
-                reminder: item,
-                controller: controller,
-                onOpenReminder: () => _openForm(controller, reminder: item),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Map<String, int> _buildReminderCountMap(List<ReminderItem> reminders) {
-    final counts = <String, int>{};
-    for (final item in reminders) {
-      final key = _dateKey(item.dueAt);
-      counts[key] = (counts[key] ?? 0) + 1;
-    }
-    return counts;
-  }
-
-  String _dateKey(DateTime date) {
-    return '${date.year}-${date.month}-${date.day}';
-  }
-
   Widget _buildTodayView(
     ReminderController controller,
     List<ReminderItem> todayItems,
   ) {
+    final pending = [...todayItems]
+      ..retainWhere((item) => !item.isCompleted)
+      ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
+    final completed = [...todayItems]
+      ..retainWhere((item) => item.isCompleted)
+      ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
+    final orderedItems = [...pending, ...completed];
+
     return ListView(
       children: [
         _SectionTitle(title: '今日时间线', subtitle: '聚焦今天要发生的事，把提醒真正串成执行节奏。'),
         const SizedBox(height: 12),
-        if (todayItems.isEmpty)
+        if (orderedItems.isEmpty)
           const _EmptyPanel(title: '今天还没有排程', subtitle: '加一条提醒，时间线就会按顺序展示出来。')
         else
-          ...todayItems.map(
+          ...orderedItems.map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: _TimelineTile(
@@ -394,6 +366,56 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
 
     return ListView(
       children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: const Color(0xFFDCEEE6),
+                  child: Text(
+                    widget.currentUser.name.trim().isEmpty
+                        ? 'N'
+                        : widget.currentUser.name.trim()[0].toUpperCase(),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF126A5A),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.currentUser.name,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.currentUser.email,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: const Color(0xFF60716B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () async {
+                    await widget.onLogout();
+                  },
+                  icon: const Icon(Icons.logout_rounded),
+                  label: const Text('退出'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Text(
@@ -522,18 +544,23 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
   }
 
   Future<void> _openCalendarPage(ReminderController controller) async {
-    final selectedDateItems = controller.remindersForDate(_selectedDate);
-    await Navigator.of(context).push(
+    final selectedDate = await Navigator.of(context).push<DateTime>(
       MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: AppBar(title: const Text('日历')),
-          body: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-            child: _buildCalendarView(controller, selectedDateItems),
-          ),
+        builder: (_) => _CalendarPage(
+          controller: controller,
+          initialSelectedDate: _selectedDate,
+          initialFocusedDate: _focusedDate,
+          onOpenReminder: (reminder) =>
+              _openForm(controller, reminder: reminder),
         ),
       ),
     );
+    if (selectedDate != null) {
+      setState(() {
+        _selectedDate = selectedDate;
+        _focusedDate = selectedDate;
+      });
+    }
   }
 }
 
@@ -542,11 +569,15 @@ class _TopBar extends StatelessWidget {
     required this.title,
     required this.onOpenCalendar,
     required this.showCalendarButton,
+    required this.onRefresh,
+    required this.isRefreshing,
   });
 
   final String title;
   final VoidCallback onOpenCalendar;
   final bool showCalendarButton;
+  final VoidCallback? onRefresh;
+  final bool isRefreshing;
 
   @override
   Widget build(BuildContext context) {
@@ -559,6 +590,17 @@ class _TopBar extends StatelessWidget {
               context,
             ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
+        ),
+        IconButton(
+          tooltip: '刷新',
+          onPressed: onRefresh,
+          icon: isRefreshing
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.refresh_rounded),
         ),
         if (showCalendarButton)
           IconButton.filledTonal(
@@ -921,8 +963,20 @@ class _TimelineTile extends StatelessWidget {
     final formatter = DateFormat('HH:mm');
     final list = controller.findList(reminder.listId);
     final isOverdue = reminder.isOverdue;
+    final isCompleted = reminder.isCompleted;
+    final baseTextColor = isCompleted ? const Color(0xFF9AA6A1) : null;
+    final titleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
+      fontWeight: FontWeight.w700,
+      decoration: isCompleted
+          ? TextDecoration.lineThrough
+          : TextDecoration.none,
+      color: baseTextColor,
+    );
+
     return Card(
-      color: isOverdue ? const Color(0xFFFFF4EF) : null,
+      color: isOverdue
+          ? const Color(0xFFFFF4EF)
+          : (isCompleted ? const Color(0xFFF4F6F4) : null),
       child: InkWell(
         borderRadius: BorderRadius.circular(24),
         onTap: onOpenReminder,
@@ -945,7 +999,12 @@ class _TimelineTile extends StatelessWidget {
                         overflow: TextOverflow.visible,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w800,
-                          color: isOverdue ? const Color(0xFFB85C38) : null,
+                          color: isOverdue
+                              ? const Color(0xFFB85C38)
+                              : (baseTextColor ??
+                                    Theme.of(
+                                      context,
+                                    ).textTheme.titleLarge?.color),
                         ),
                       ),
                     ),
@@ -963,11 +1022,7 @@ class _TimelineTile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        reminder.title,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
+                      Text(reminder.title, style: titleStyle),
                       const SizedBox(height: 6),
                       Wrap(
                         spacing: 8,
@@ -977,13 +1032,23 @@ class _TimelineTile extends StatelessWidget {
                           Text(
                             list?.name ?? '未分类清单',
                             style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: const Color(0xFF60716B)),
+                                ?.copyWith(
+                                  color: isCompleted
+                                      ? const Color(0xFF9AA6A1)
+                                      : const Color(0xFF60716B),
+                                ),
                           ),
                           if (isOverdue)
                             const _Pill(
                               label: '超时未完成',
                               color: Color(0xFFFBE0D6),
                               foreground: Color(0xFFB85C38),
+                            ),
+                          if (isCompleted)
+                            const _Pill(
+                              label: '已完成',
+                              color: Color(0xFFE5EFE7),
+                              foreground: Color(0xFF3E6A4D),
                             ),
                         ],
                       ),
@@ -993,6 +1058,8 @@ class _TimelineTile extends StatelessWidget {
                           reminder.note!,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: baseTextColor),
                         ),
                       ],
                     ],
@@ -1151,53 +1218,60 @@ class _WorkspaceManagerSheet extends StatelessWidget {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '任务清单 / 分组 / 标签',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '先用本地数据维护组织结构，后续接 API 时可以整体复用。',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 18),
-            _ManagerSection(
-              title: '任务清单',
-              values: controller.lists.map((item) => item.name).toList(),
-              onAdd: () => _promptCreateItem(
-                context: context,
-                title: '新建任务清单',
-                onSubmit: (name) => controller.createList(name, 0xFF126A5A),
-              ),
-            ),
-            const SizedBox(height: 14),
-            _ManagerSection(
-              title: '分组',
-              values: controller.groups.map((item) => item.name).toList(),
-              onAdd: () => _promptCreateItem(
-                context: context,
-                title: '新建分组',
-                onSubmit: (name) =>
-                    controller.createGroup(name, Icons.folder.codePoint),
-              ),
-            ),
-            const SizedBox(height: 14),
-            _ManagerSection(
-              title: '标签',
-              values: controller.tags.map((item) => '#${item.name}').toList(),
-              onAdd: () => _promptCreateItem(
-                context: context,
-                title: '新建标签',
-                onSubmit: (name) => controller.createTag(name, 0xFF6B5FB3),
-              ),
-            ),
-          ],
+        child: AnimatedBuilder(
+          animation: controller,
+          builder: (context, _) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '任务清单 / 分组 / 标签',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '先用本地数据维护组织结构，后续接 API 时可以整体复用。',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 18),
+                _ManagerSection(
+                  title: '任务清单',
+                  values: controller.lists.map((item) => item.name).toList(),
+                  onAdd: () => _promptCreateItem(
+                    context: context,
+                    title: '新建任务清单',
+                    onSubmit: (name) => controller.createList(name, 0xFF126A5A),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _ManagerSection(
+                  title: '分组',
+                  values: controller.groups.map((item) => item.name).toList(),
+                  onAdd: () => _promptCreateItem(
+                    context: context,
+                    title: '新建分组',
+                    onSubmit: (name) =>
+                        controller.createGroup(name, Icons.folder.codePoint),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _ManagerSection(
+                  title: '标签',
+                  values: controller.tags
+                      .map((item) => '#${item.name}')
+                      .toList(),
+                  onAdd: () => _promptCreateItem(
+                    context: context,
+                    title: '新建标签',
+                    onSubmit: (name) => controller.createTag(name, 0xFF6B5FB3),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -1243,6 +1317,200 @@ class _WorkspaceManagerSheet extends StatelessWidget {
     );
     controller.dispose();
   }
+}
+
+class _CalendarPage extends StatefulWidget {
+  const _CalendarPage({
+    required this.controller,
+    required this.initialSelectedDate,
+    required this.initialFocusedDate,
+    required this.onOpenReminder,
+  });
+
+  final ReminderController controller;
+  final DateTime initialSelectedDate;
+  final DateTime initialFocusedDate;
+  final void Function(ReminderItem reminder) onOpenReminder;
+
+  @override
+  State<_CalendarPage> createState() => _CalendarPageState();
+}
+
+class _CalendarPageState extends State<_CalendarPage> {
+  late DateTime _selectedDate;
+  late DateTime _focusedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = DateTime(
+      widget.initialSelectedDate.year,
+      widget.initialSelectedDate.month,
+      widget.initialSelectedDate.day,
+    );
+    _focusedDate = widget.initialFocusedDate;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reminderCounts = _buildReminderCountMap(widget.controller.reminders);
+    final selectedItems = widget.controller.remindersForDate(_selectedDate);
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          Navigator.of(context).pop(_selectedDate);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('日历'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            onPressed: () => Navigator.of(context).pop(_selectedDate),
+          ),
+        ),
+        body: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          child: ListView(
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: TableCalendar<int>(
+                    locale: 'zh_CN',
+                    firstDay: DateTime.now().subtract(
+                      const Duration(days: 365),
+                    ),
+                    lastDay: DateTime.now().add(const Duration(days: 3650)),
+                    focusedDay: _focusedDate,
+                    selectedDayPredicate: (day) =>
+                        isSameDay(day, _selectedDate),
+                    eventLoader: (day) {
+                      final count = reminderCounts[_dateKey(day)] ?? 0;
+                      if (count == 0) {
+                        return const [];
+                      }
+                      return List<int>.filled(count, 1);
+                    },
+                    calendarFormat: CalendarFormat.month,
+                    availableCalendarFormats: const {CalendarFormat.month: '月'},
+                    headerStyle: HeaderStyle(
+                      titleCentered: true,
+                      formatButtonVisible: false,
+                      titleTextFormatter: (date, locale) =>
+                          DateFormat('yyyy年M月', locale).format(date),
+                      titleTextStyle: Theme.of(context).textTheme.titleMedium!
+                          .copyWith(fontWeight: FontWeight.w800),
+                      leftChevronIcon: const Icon(Icons.chevron_left_rounded),
+                      rightChevronIcon: const Icon(Icons.chevron_right_rounded),
+                    ),
+                    daysOfWeekStyle: DaysOfWeekStyle(
+                      weekendStyle: Theme.of(context).textTheme.bodySmall!
+                          .copyWith(
+                            color: const Color(0xFF7A8A84),
+                            fontWeight: FontWeight.w700,
+                          ),
+                      weekdayStyle: Theme.of(context).textTheme.bodySmall!
+                          .copyWith(
+                            color: const Color(0xFF7A8A84),
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    calendarStyle: const CalendarStyle(
+                      outsideDaysVisible: false,
+                      defaultDecoration: BoxDecoration(),
+                      weekendDecoration: BoxDecoration(),
+                      todayDecoration: BoxDecoration(),
+                      selectedDecoration: BoxDecoration(),
+                      cellMargin: EdgeInsets.all(6),
+                    ),
+                    onDaySelected: (selectedDay, focusedDay) {
+                      setState(() {
+                        _selectedDate = selectedDay;
+                        _focusedDate = focusedDay;
+                      });
+                    },
+                    onPageChanged: (focusedDay) {
+                      setState(() {
+                        _focusedDate = focusedDay;
+                      });
+                    },
+                    calendarBuilders: CalendarBuilders(
+                      defaultBuilder: (context, day, focusedDay) {
+                        return _CalendarDayCell(
+                          day: day,
+                          count: reminderCounts[_dateKey(day)] ?? 0,
+                          isSelected: false,
+                          isToday: isSameDay(day, DateTime.now()),
+                        );
+                      },
+                      todayBuilder: (context, day, focusedDay) {
+                        return _CalendarDayCell(
+                          day: day,
+                          count: reminderCounts[_dateKey(day)] ?? 0,
+                          isSelected: false,
+                          isToday: true,
+                        );
+                      },
+                      selectedBuilder: (context, day, focusedDay) {
+                        return _CalendarDayCell(
+                          day: day,
+                          count: reminderCounts[_dateKey(day)] ?? 0,
+                          isSelected: true,
+                          isToday: isSameDay(day, DateTime.now()),
+                        );
+                      },
+                      outsideBuilder: (context, day, focusedDay) =>
+                          const SizedBox.shrink(),
+                      markerBuilder: (context, day, events) =>
+                          const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _SectionTitle(
+                title: DateFormat('M月d日 EEEE', 'zh_CN').format(_selectedDate),
+                subtitle: '按时间查看这一天的提醒安排',
+              ),
+              const SizedBox(height: 12),
+              if (selectedItems.isEmpty)
+                const _EmptyPanel(
+                  title: '这一天没有提醒',
+                  subtitle: '你可以从这里提前规划节奏，时间线会自动联动。',
+                )
+              else
+                ...selectedItems.map(
+                  (item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _TimelineTile(
+                      reminder: item,
+                      controller: widget.controller,
+                      onOpenReminder: () => widget.onOpenReminder(item),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Map<String, int> _buildReminderCountMap(List<ReminderItem> reminders) {
+  final counts = <String, int>{};
+  for (final item in reminders) {
+    final key = _dateKey(item.dueAt);
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+String _dateKey(DateTime date) {
+  return '${date.year}-${date.month}-${date.day}';
 }
 
 class _ManagerSection extends StatelessWidget {

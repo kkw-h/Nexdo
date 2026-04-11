@@ -8,7 +8,7 @@
 PRODUCT_NAME = nexdo
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.example.nexdo
+PRODUCT_BUNDLE_IDENTIFIER = top.kkworld.nexdo
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.example. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 Nexdo. All rights reserved.

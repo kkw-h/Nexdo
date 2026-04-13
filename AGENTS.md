@@ -25,5 +25,7 @@ Auth state relies on `SharedPreferences` (`lib/src/features/auth/data/auth_repos
 ## API Integration Notes
 Flutter now relies on the Nexdo API running at `http://127.0.0.1:8080/api/v1` by default via `NexdoApiClient`. Override the endpoint with `flutter run --dart-define=NEXDO_API_BASE_URL=https://your-host/api/v1` when pointing to other environments. Auth tokens and the latest `AuthUser` snapshot are stored under the `auth.session` key in `SharedPreferences`, and the `RemoteReminderWorkspaceRepository` keeps the reminder workspace cache in `ReminderLocalDataSource`. Always ensure the Go backend (see `docs/api-technical-solution-go.md`) is up before launching the Flutter shell so `/auth/*` and `/sync/*` requests succeed.
 
+Incremental sync first calls `GET /api/v1/sync/bootstrap` to cache the workspace plus `server_time`, then repeatedly hits `GET /api/v1/sync/changes?since=<server_time>`; the repository merges `deleted_*_ids` into local state and ReminderController polls every 30 seconds so reminders stay fresh without manual refresh.
+
 ## API Docs
 http://127.0.0.1:8080/api/v1/docs

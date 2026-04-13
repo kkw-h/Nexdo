@@ -18,16 +18,16 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
   final ReminderLocalDataSource _localDataSource;
 
   ReminderWorkspace? _cache;
+  String? _serverTime;
 
   @override
   Future<ReminderWorkspace> fetchWorkspace() async {
     if (_cache != null) {
       return _cache!;
     }
-    final local = await _localDataSource.readWorkspace();
+    final local = await _loadCachedWorkspace();
     if (local != null) {
-      _cache = _sortWorkspace(local);
-      return _cache!;
+      return local;
     }
     return seedIfEmpty();
   }
@@ -39,10 +39,9 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
     } on AuthException {
       rethrow;
     } catch (_) {
-      final local = await _localDataSource.readWorkspace();
+      final local = await _loadCachedWorkspace();
       if (local != null) {
-        _cache = _sortWorkspace(local);
-        return _cache!;
+        return local;
       }
       rethrow;
     }
@@ -186,24 +185,37 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
     if (_cache != null) {
       return _cache!;
     }
-    final local = await _localDataSource.readWorkspace();
+    final local = await _loadCachedWorkspace();
     if (local != null) {
-      _cache = _sortWorkspace(local);
-      return _cache!;
+      return local;
     }
-    return _refreshWorkspace();
+    return _refreshWorkspace(forceBootstrap: true);
   }
 
-  Future<ReminderWorkspace> _refreshWorkspace() async {
+  Future<ReminderWorkspace> _refreshWorkspace({bool forceBootstrap = false}) async {
+    final shouldBootstrap = forceBootstrap || _serverTime == null || _cache == null;
+    final path = shouldBootstrap ? '/sync/bootstrap' : '/sync/changes';
     final data =
-        await _authorizedRequest(method: 'GET', path: '/sync/bootstrap')
-            as Map<String, dynamic>?;
+        await _authorizedRequest(
+          method: 'GET',
+          path: path,
+          queryParameters: shouldBootstrap ? null : {'since': _serverTime},
+        ) as Map<String, dynamic>?;
     if (data == null) {
       throw const AuthException('获取提醒数据失败');
     }
-    final workspace = _mapWorkspace(data);
+
+    final serverTime = data['server_time'] as String?;
+    ReminderWorkspace workspace;
+    if (shouldBootstrap) {
+      workspace = _mapWorkspace(data);
+    } else {
+      workspace = _mergeWorkspace(_cache!, data);
+    }
+
+    _serverTime = serverTime ?? _serverTime;
     _cache = _sortWorkspace(workspace);
-    await _localDataSource.writeWorkspace(_cache!);
+    await _localDataSource.writeCache(_cache!, serverTime: _serverTime);
     return _cache!;
   }
 
@@ -231,7 +243,7 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
     ReminderWorkspace workspace,
   ) async {
     _cache = _sortWorkspace(workspace);
-    await _localDataSource.writeWorkspace(_cache!);
+    await _localDataSource.writeCache(_cache!, serverTime: _serverTime);
     return _cache!;
   }
 
@@ -254,6 +266,83 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
       groups: groups,
       tags: tags,
     );
+  }
+
+  ReminderWorkspace _mergeWorkspace(
+    ReminderWorkspace workspace,
+    Map<String, dynamic> delta,
+  ) {
+    final lists = _mergeEntities<ReminderList>(
+      workspace.lists,
+      delta['lists'] as List<dynamic>?,
+      delta['deleted_list_ids'] as List<dynamic>?,
+      _mapList,
+      (item) => item.id,
+    );
+    final groups = _mergeEntities<ReminderGroup>(
+      workspace.groups,
+      delta['groups'] as List<dynamic>?,
+      delta['deleted_group_ids'] as List<dynamic>?,
+      _mapGroup,
+      (item) => item.id,
+    );
+    final tags = _mergeEntities<ReminderTag>(
+      workspace.tags,
+      delta['tags'] as List<dynamic>?,
+      delta['deleted_tag_ids'] as List<dynamic>?,
+      _mapTag,
+      (item) => item.id,
+    );
+    final reminders = _mergeEntities<ReminderItem>(
+      workspace.reminders,
+      delta['reminders'] as List<dynamic>?,
+      delta['deleted_reminder_ids'] as List<dynamic>?,
+      _mapReminder,
+      (item) => item.id,
+    );
+    return ReminderWorkspace(
+      reminders: reminders,
+      lists: lists,
+      groups: groups,
+      tags: tags,
+    );
+  }
+
+  List<T> _mergeEntities<T>(
+    List<T> current,
+    List<dynamic>? updates,
+    List<dynamic>? deletedIds,
+    T Function(Map<String, dynamic>) mapper,
+    String Function(T) idSelector,
+  ) {
+    final map = <String, T>{for (final item in current) idSelector(item): item};
+    if (updates != null) {
+      for (final raw in updates) {
+        if (raw is Map<String, dynamic>) {
+          final entity = mapper(raw);
+          map[idSelector(entity)] = entity;
+        }
+      }
+    }
+    if (deletedIds != null) {
+      for (final rawId in deletedIds) {
+        final id = rawId?.toString();
+        if (id != null) {
+          map.remove(id);
+        }
+      }
+    }
+    return map.values.toList();
+  }
+
+  Future<ReminderWorkspace?> _loadCachedWorkspace() async {
+    final cached = await _localDataSource.readCache();
+    if (cached == null) {
+      return null;
+    }
+    _serverTime = cached.serverTime;
+    _cache = _sortWorkspace(cached.workspace);
+    return _cache!;
   }
 
   ReminderList _mapList(Map<String, dynamic> map) {

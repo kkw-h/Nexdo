@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../application/reminder_notification_service.dart';
@@ -9,6 +11,7 @@ class ReminderController extends ChangeNotifier {
 
   final ReminderWorkspaceRepository _repository;
   final ReminderNotificationService _notificationService;
+  static const Duration _pollingInterval = Duration(seconds: 30);
 
   ReminderWorkspace _workspace = const ReminderWorkspace(
     reminders: [],
@@ -18,6 +21,8 @@ class ReminderController extends ChangeNotifier {
   );
 
   bool _isLoading = true;
+  bool _syncInProgress = false;
+  Timer? _pollingTimer;
 
   ReminderWorkspace get workspace => _workspace;
   List<ReminderItem> get reminders => List.unmodifiable(_workspace.reminders);
@@ -33,12 +38,11 @@ class ReminderController extends ChangeNotifier {
     await _notificationService.syncAll(_workspace.reminders);
     _isLoading = false;
     notifyListeners();
+    _startPolling();
   }
 
-  Future<void> refresh() async {
-    _workspace = await _repository.refreshWorkspace();
-    await _notificationService.syncAll(_workspace.reminders);
-    notifyListeners();
+  Future<void> refresh() {
+    return _syncFromServer();
   }
 
   List<ReminderItem> remindersFor(ReminderFilter filter) {
@@ -155,5 +159,41 @@ class ReminderController extends ChangeNotifier {
       ),
     );
     notifyListeners();
+  }
+
+  void _startPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(
+      _pollingInterval,
+      (_) {
+        _syncFromServer(suppressErrors: true);
+      },
+    );
+  }
+
+  Future<void> _syncFromServer({bool suppressErrors = false}) async {
+    if (_syncInProgress) {
+      return;
+    }
+    _syncInProgress = true;
+    try {
+      final workspace = await _repository.refreshWorkspace();
+      _workspace = workspace;
+      await _notificationService.syncAll(_workspace.reminders);
+      notifyListeners();
+    } catch (error) {
+      if (!suppressErrors) {
+        rethrow;
+      }
+      debugPrint('提醒同步失败: $error');
+    } finally {
+      _syncInProgress = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
   }
 }

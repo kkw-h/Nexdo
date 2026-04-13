@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
@@ -23,6 +24,7 @@ class ReminderController extends ChangeNotifier {
   bool _isLoading = true;
   bool _syncInProgress = false;
   Timer? _pollingTimer;
+  DateTime? _nextSyncTime;
 
   ReminderWorkspace get workspace => _workspace;
   List<ReminderItem> get reminders => List.unmodifiable(_workspace.reminders);
@@ -30,6 +32,7 @@ class ReminderController extends ChangeNotifier {
   List<ReminderGroup> get groups => List.unmodifiable(_workspace.groups);
   List<ReminderTag> get tags => List.unmodifiable(_workspace.tags);
   bool get isLoading => _isLoading;
+  DateTime? get nextSyncTime => _nextSyncTime;
 
   Future<void> bootstrap() async {
     _isLoading = true;
@@ -134,8 +137,29 @@ class ReminderController extends ChangeNotifier {
         id: 'list-${DateTime.now().microsecondsSinceEpoch}',
         name: name,
         colorValue: colorValue,
+        sortOrder: _nextListSortOrder(),
       ),
     );
+    notifyListeners();
+  }
+
+  Future<void> renameList(ReminderList list, String name) async {
+    _workspace = await _repository.saveList(list.copyWith(name: name));
+    notifyListeners();
+  }
+
+  Future<void> applyListOrder(List<ReminderList> ordered) async {
+    var workspace = _workspace;
+    for (var i = 0; i < ordered.length; i++) {
+      final updated = ordered[i].copyWith(sortOrder: i);
+      workspace = await _repository.saveList(updated);
+    }
+    _workspace = workspace;
+    notifyListeners();
+  }
+
+  Future<void> deleteList(String id) async {
+    _workspace = await _repository.deleteList(id);
     notifyListeners();
   }
 
@@ -145,8 +169,29 @@ class ReminderController extends ChangeNotifier {
         id: 'group-${DateTime.now().microsecondsSinceEpoch}',
         name: name,
         iconCodePoint: iconCodePoint,
+        sortOrder: _nextGroupSortOrder(),
       ),
     );
+    notifyListeners();
+  }
+
+  Future<void> renameGroup(ReminderGroup group, String name) async {
+    _workspace = await _repository.saveGroup(group.copyWith(name: name));
+    notifyListeners();
+  }
+
+  Future<void> applyGroupOrder(List<ReminderGroup> ordered) async {
+    var workspace = _workspace;
+    for (var i = 0; i < ordered.length; i++) {
+      final updated = ordered[i].copyWith(sortOrder: i);
+      workspace = await _repository.saveGroup(updated);
+    }
+    _workspace = workspace;
+    notifyListeners();
+  }
+
+  Future<void> deleteGroup(String id) async {
+    _workspace = await _repository.deleteGroup(id);
     notifyListeners();
   }
 
@@ -161,8 +206,39 @@ class ReminderController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> renameTag(ReminderTag tag, String name) async {
+    _workspace = await _repository.saveTag(tag.copyWith(name: name));
+    notifyListeners();
+  }
+
+  Future<void> deleteTag(String id) async {
+    _workspace = await _repository.deleteTag(id);
+    notifyListeners();
+  }
+
+  int _nextListSortOrder() {
+    if (_workspace.lists.isEmpty) {
+      return 0;
+    }
+    return _workspace.lists
+            .map((item) => item.sortOrder)
+            .reduce(max) +
+        1;
+  }
+
+  int _nextGroupSortOrder() {
+    if (_workspace.groups.isEmpty) {
+      return 0;
+    }
+    return _workspace.groups
+            .map((item) => item.sortOrder)
+            .reduce(max) +
+        1;
+  }
+
   void _startPolling() {
     _pollingTimer?.cancel();
+    _updateNextSyncTime(notify: true);
     _pollingTimer = Timer.periodic(
       _pollingInterval,
       (_) {
@@ -180,12 +256,14 @@ class ReminderController extends ChangeNotifier {
       final workspace = await _repository.refreshWorkspace();
       _workspace = workspace;
       await _notificationService.syncAll(_workspace.reminders);
+      _updateNextSyncTime();
       notifyListeners();
     } catch (error) {
       if (!suppressErrors) {
         rethrow;
       }
       debugPrint('提醒同步失败: $error');
+      _updateNextSyncTime(notify: true);
     } finally {
       _syncInProgress = false;
     }
@@ -194,6 +272,14 @@ class ReminderController extends ChangeNotifier {
   @override
   void dispose() {
     _pollingTimer?.cancel();
+    _nextSyncTime = null;
     super.dispose();
+  }
+
+  void _updateNextSyncTime({bool notify = false}) {
+    _nextSyncTime = DateTime.now().add(_pollingInterval);
+    if (notify) {
+      notifyListeners();
+    }
   }
 }

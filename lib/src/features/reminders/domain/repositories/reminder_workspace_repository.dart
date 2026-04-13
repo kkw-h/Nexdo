@@ -20,7 +20,13 @@ abstract class ReminderWorkspaceRepository {
 
   Future<ReminderWorkspace> saveList(ReminderList list);
 
+  Future<ReminderWorkspace> deleteList(String id);
+
   Future<ReminderWorkspace> saveGroup(ReminderGroup group);
 
+  Future<ReminderWorkspace> deleteGroup(String id);
+
   Future<ReminderWorkspace> saveTag(ReminderTag tag);
+
+  Future<ReminderWorkspace> deleteTag(String id);
 }

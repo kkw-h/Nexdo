@@ -124,6 +124,16 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
   }
 
   @override
+  Future<ReminderWorkspace> deleteList(String id) async {
+    await _authorizedRequest(method: 'DELETE', path: '/lists/$id');
+    final workspace = await _ensureWorkspace();
+    final updated = workspace.copyWith(
+      lists: _sortLists(workspace.lists.where((item) => item.id != id).toList()),
+    );
+    return _updateWorkspace(updated);
+  }
+
+  @override
   Future<ReminderWorkspace> saveGroup(ReminderGroup group) async {
     final workspace = await _ensureWorkspace();
     final exists = workspace.groups.any((item) => item.id == group.id);
@@ -153,6 +163,17 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
   }
 
   @override
+  Future<ReminderWorkspace> deleteGroup(String id) async {
+    await _authorizedRequest(method: 'DELETE', path: '/groups/$id');
+    final workspace = await _ensureWorkspace();
+    final updated = workspace.copyWith(
+      groups:
+          _sortGroups(workspace.groups.where((item) => item.id != id).toList()),
+    );
+    return _updateWorkspace(updated);
+  }
+
+  @override
   Future<ReminderWorkspace> saveTag(ReminderTag tag) async {
     final workspace = await _ensureWorkspace();
     final exists = workspace.tags.any((item) => item.id == tag.id);
@@ -179,6 +200,16 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
     }
     final updatedWorkspace = workspace.copyWith(tags: _sortTags(tags));
     return _updateWorkspace(updatedWorkspace);
+  }
+
+  @override
+  Future<ReminderWorkspace> deleteTag(String id) async {
+    await _authorizedRequest(method: 'DELETE', path: '/tags/$id');
+    final workspace = await _ensureWorkspace();
+    final updated = workspace.copyWith(
+      tags: _sortTags(workspace.tags.where((item) => item.id != id).toList()),
+    );
+    return _updateWorkspace(updated);
   }
 
   Future<ReminderWorkspace> _ensureWorkspace() async {
@@ -350,6 +381,7 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
       id: map['id'] as String,
       name: map['name'] as String,
       colorValue: (map['color_value'] as num?)?.toInt() ?? 0,
+      sortOrder: (map['sort_order'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -358,6 +390,7 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
       id: map['id'] as String,
       name: map['name'] as String,
       iconCodePoint: (map['icon_code_point'] as num?)?.toInt() ?? 0,
+      sortOrder: (map['sort_order'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -430,14 +463,18 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
   }
 
   Map<String, dynamic> _listPayload(ReminderList list) {
-    return {'name': list.name, 'color_value': list.colorValue, 'sort_order': 0};
+    return {
+      'name': list.name,
+      'color_value': list.colorValue,
+      'sort_order': list.sortOrder,
+    };
   }
 
   Map<String, dynamic> _groupPayload(ReminderGroup group) {
     return {
       'name': group.name,
       'icon_code_point': group.iconCodePoint,
-      'sort_order': 0,
+      'sort_order': group.sortOrder,
     };
   }
 
@@ -462,11 +499,25 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
   }
 
   List<ReminderList> _sortLists(List<ReminderList> items) {
-    return [...items]..sort((a, b) => a.name.compareTo(b.name));
+    return [...items]
+      ..sort((a, b) {
+        final order = a.sortOrder.compareTo(b.sortOrder);
+        if (order != 0) {
+          return order;
+        }
+        return a.name.compareTo(b.name);
+      });
   }
 
   List<ReminderGroup> _sortGroups(List<ReminderGroup> items) {
-    return [...items]..sort((a, b) => a.name.compareTo(b.name));
+    return [...items]
+      ..sort((a, b) {
+        final order = a.sortOrder.compareTo(b.sortOrder);
+        if (order != 0) {
+          return order;
+        }
+        return a.name.compareTo(b.name);
+      });
   }
 
   List<ReminderTag> _sortTags(List<ReminderTag> items) {

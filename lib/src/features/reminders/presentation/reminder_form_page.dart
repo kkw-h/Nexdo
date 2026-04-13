@@ -44,14 +44,16 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
   void initState() {
     super.initState();
     final reminder = widget.initialReminder;
+    final initialLists = _sortedLists();
+    final initialGroups = _sortedGroups();
     _titleController = TextEditingController(text: reminder?.title ?? '');
     _noteController = TextEditingController(text: reminder?.note ?? '');
     _selectedDateTime =
         reminder?.dueAt ?? DateTime.now().add(const Duration(hours: 2));
     _selectedListId =
-        reminder?.listId ?? widget.availableLists.firstOrNull?.id ?? '';
+        reminder?.listId ?? (initialLists.isNotEmpty ? initialLists.first.id : '');
     _selectedGroupId =
-        reminder?.groupId ?? widget.availableGroups.firstOrNull?.id ?? '';
+        reminder?.groupId ?? (initialGroups.isNotEmpty ? initialGroups.first.id : '');
     _selectedTagIds = {...?reminder?.tagIds};
     _notificationEnabled = reminder?.notificationEnabled ?? true;
     _repeatRule = reminder?.repeatRule ?? ReminderRepeatRule.none;
@@ -66,6 +68,8 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
 
   @override
   Widget build(BuildContext context) {
+    final lists = _sortedLists();
+    final groups = _sortedGroups();
     final formatter = DateFormat('M月d日 EEEE HH:mm', 'zh_CN');
     final timeFormatter = DateFormat('HH:mm', 'zh_CN');
     final dayHint = _relativeDayLabel(_selectedDateTime);
@@ -173,7 +177,7 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                   child: Wrap(
                     spacing: 10,
                     runSpacing: 10,
-                    children: widget.availableLists.map((item) {
+                    children: lists.map((item) {
                       return _SelectableChip(
                         label: item.name,
                         selected: _selectedListId == item.id,
@@ -192,7 +196,7 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                   child: Wrap(
                     spacing: 10,
                     runSpacing: 10,
-                    children: widget.availableGroups.map((item) {
+                    children: groups.map((item) {
                       return _SelectableChip(
                         label: item.name,
                         selected: _selectedGroupId == item.id,
@@ -433,6 +437,30 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
     );
 
     Navigator.of(context).pop(ReminderFormResult(reminder));
+  }
+
+  List<ReminderList> _sortedLists() {
+    final lists = [...widget.availableLists];
+    lists.sort((a, b) {
+      final compare = a.sortOrder.compareTo(b.sortOrder);
+      if (compare != 0) {
+        return compare;
+      }
+      return a.name.compareTo(b.name);
+    });
+    return lists;
+  }
+
+  List<ReminderGroup> _sortedGroups() {
+    final groups = [...widget.availableGroups];
+    groups.sort((a, b) {
+      final compare = a.sortOrder.compareTo(b.sortOrder);
+      if (compare != 0) {
+        return compare;
+      }
+      return a.name.compareTo(b.name);
+    });
+    return groups;
   }
 }
 

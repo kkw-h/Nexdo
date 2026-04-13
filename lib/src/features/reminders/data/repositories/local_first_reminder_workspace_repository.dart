@@ -24,14 +24,44 @@ class LocalFirstReminderWorkspaceRepository
     final now = DateTime.now();
     final workspace = ReminderWorkspace(
       lists: const [
-        ReminderList(id: 'list-work', name: '工作', colorValue: 0xFF126A5A),
-        ReminderList(id: 'list-life', name: '生活', colorValue: 0xFFB85C38),
-        ReminderList(id: 'list-study', name: '学习', colorValue: 0xFF4E6D7A),
+        ReminderList(
+          id: 'list-work',
+          name: '工作',
+          colorValue: 0xFF126A5A,
+          sortOrder: 0,
+        ),
+        ReminderList(
+          id: 'list-life',
+          name: '生活',
+          colorValue: 0xFFB85C38,
+          sortOrder: 1,
+        ),
+        ReminderList(
+          id: 'list-study',
+          name: '学习',
+          colorValue: 0xFF4E6D7A,
+          sortOrder: 2,
+        ),
       ],
       groups: const [
-        ReminderGroup(id: 'group-focus', name: '高优先级', iconCodePoint: 0xe318),
-        ReminderGroup(id: 'group-routine', name: '日常', iconCodePoint: 0xe3c9),
-        ReminderGroup(id: 'group-review', name: '复盘', iconCodePoint: 0xf04f4),
+        ReminderGroup(
+          id: 'group-focus',
+          name: '高优先级',
+          iconCodePoint: 0xe318,
+          sortOrder: 0,
+        ),
+        ReminderGroup(
+          id: 'group-routine',
+          name: '日常',
+          iconCodePoint: 0xe3c9,
+          sortOrder: 1,
+        ),
+        ReminderGroup(
+          id: 'group-review',
+          name: '复盘',
+          iconCodePoint: 0xf04f4,
+          sortOrder: 2,
+        ),
       ],
       tags: const [
         ReminderTag(id: 'tag-urgent', name: '紧急', colorValue: 0xFFC75C3A),
@@ -132,7 +162,24 @@ class LocalFirstReminderWorkspaceRepository
       lists[index] = list;
     }
     final updated = workspace.copyWith(
-      lists: [...lists]..sort((a, b) => a.name.compareTo(b.name)),
+      lists: [...lists]
+        ..sort((a, b) {
+          final compare = a.sortOrder.compareTo(b.sortOrder);
+          if (compare != 0) {
+            return compare;
+          }
+          return a.name.compareTo(b.name);
+        }),
+    );
+    await _localDataSource.writeWorkspace(updated);
+    return updated;
+  }
+
+  @override
+  Future<ReminderWorkspace> deleteList(String id) async {
+    final workspace = await fetchWorkspace();
+    final updated = workspace.copyWith(
+      lists: workspace.lists.where((item) => item.id != id).toList(),
     );
     await _localDataSource.writeWorkspace(updated);
     return updated;
@@ -149,7 +196,24 @@ class LocalFirstReminderWorkspaceRepository
       groups[index] = group;
     }
     final updated = workspace.copyWith(
-      groups: [...groups]..sort((a, b) => a.name.compareTo(b.name)),
+      groups: [...groups]
+        ..sort((a, b) {
+          final compare = a.sortOrder.compareTo(b.sortOrder);
+          if (compare != 0) {
+            return compare;
+          }
+          return a.name.compareTo(b.name);
+        }),
+    );
+    await _localDataSource.writeWorkspace(updated);
+    return updated;
+  }
+
+  @override
+  Future<ReminderWorkspace> deleteGroup(String id) async {
+    final workspace = await fetchWorkspace();
+    final updated = workspace.copyWith(
+      groups: workspace.groups.where((item) => item.id != id).toList(),
     );
     await _localDataSource.writeWorkspace(updated);
     return updated;
@@ -167,6 +231,16 @@ class LocalFirstReminderWorkspaceRepository
     }
     final updated = workspace.copyWith(
       tags: [...tags]..sort((a, b) => a.name.compareTo(b.name)),
+    );
+    await _localDataSource.writeWorkspace(updated);
+    return updated;
+  }
+
+  @override
+  Future<ReminderWorkspace> deleteTag(String id) async {
+    final workspace = await fetchWorkspace();
+    final updated = workspace.copyWith(
+      tags: workspace.tags.where((item) => item.id != id).toList(),
     );
     await _localDataSource.writeWorkspace(updated);
     return updated;
@@ -190,6 +264,32 @@ class LocalFirstReminderWorkspaceRepository
         return a.dueAt.compareTo(b.dueAt);
       });
 
-    return workspace.copyWith(reminders: reminders);
+    List<ReminderList> sortLists(List<ReminderList> items) {
+      return [...items]
+        ..sort((a, b) {
+          final compare = a.sortOrder.compareTo(b.sortOrder);
+          if (compare != 0) {
+            return compare;
+          }
+          return a.name.compareTo(b.name);
+        });
+    }
+
+    List<ReminderGroup> sortGroups(List<ReminderGroup> items) {
+      return [...items]
+        ..sort((a, b) {
+          final compare = a.sortOrder.compareTo(b.sortOrder);
+          if (compare != 0) {
+            return compare;
+          }
+          return a.name.compareTo(b.name);
+        });
+    }
+
+    return workspace.copyWith(
+      reminders: reminders,
+      lists: sortLists(workspace.lists),
+      groups: sortGroups(workspace.groups),
+    );
   }
 }

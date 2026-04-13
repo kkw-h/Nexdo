@@ -62,14 +62,35 @@ class ReminderList {
     required this.id,
     required this.name,
     required this.colorValue,
+    this.sortOrder = 0,
   });
 
   final String id;
   final String name;
   final int colorValue;
+  final int sortOrder;
+
+  ReminderList copyWith({
+    String? id,
+    String? name,
+    int? colorValue,
+    int? sortOrder,
+  }) {
+    return ReminderList(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      colorValue: colorValue ?? this.colorValue,
+      sortOrder: sortOrder ?? this.sortOrder,
+    );
+  }
 
   Map<String, dynamic> toMap() {
-    return {'id': id, 'name': name, 'colorValue': colorValue};
+    return {
+      'id': id,
+      'name': name,
+      'colorValue': colorValue,
+      'sortOrder': sortOrder,
+    };
   }
 
   factory ReminderList.fromMap(Map<String, dynamic> map) {
@@ -77,6 +98,7 @@ class ReminderList {
       id: map['id'] as String,
       name: map['name'] as String,
       colorValue: map['colorValue'] as int,
+      sortOrder: map['sortOrder'] as int? ?? 0,
     );
   }
 }
@@ -86,14 +108,35 @@ class ReminderGroup {
     required this.id,
     required this.name,
     required this.iconCodePoint,
+    this.sortOrder = 0,
   });
 
   final String id;
   final String name;
   final int iconCodePoint;
+  final int sortOrder;
+
+  ReminderGroup copyWith({
+    String? id,
+    String? name,
+    int? iconCodePoint,
+    int? sortOrder,
+  }) {
+    return ReminderGroup(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      iconCodePoint: iconCodePoint ?? this.iconCodePoint,
+      sortOrder: sortOrder ?? this.sortOrder,
+    );
+  }
 
   Map<String, dynamic> toMap() {
-    return {'id': id, 'name': name, 'iconCodePoint': iconCodePoint};
+    return {
+      'id': id,
+      'name': name,
+      'iconCodePoint': iconCodePoint,
+      'sortOrder': sortOrder,
+    };
   }
 
   factory ReminderGroup.fromMap(Map<String, dynamic> map) {
@@ -101,6 +144,7 @@ class ReminderGroup {
       id: map['id'] as String,
       name: map['name'] as String,
       iconCodePoint: map['iconCodePoint'] as int,
+      sortOrder: map['sortOrder'] as int? ?? 0,
     );
   }
 }
@@ -115,6 +159,18 @@ class ReminderTag {
   final String id;
   final String name;
   final int colorValue;
+
+  ReminderTag copyWith({
+    String? id,
+    String? name,
+    int? colorValue,
+  }) {
+    return ReminderTag(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      colorValue: colorValue ?? this.colorValue,
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {'id': id, 'name': name, 'colorValue': colorValue};

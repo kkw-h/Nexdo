@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -34,14 +36,26 @@ class ReminderAppShell extends StatefulWidget {
   State<ReminderAppShell> createState() => _ReminderAppShellState();
 }
 
+enum ReminderSortMode { dueDate, createdAt, title }
+
 class _ReminderAppShellState extends State<ReminderAppShell> {
+  static const _permissionPromptKey = 'permission_prompt.shown';
+  static const ReminderList _allReminderList = ReminderList(
+    id: '__all__',
+    name: '全部提醒',
+    colorValue: 0xFF126A5A,
+  );
+
   ReminderController? _controller;
   ReminderFilter _selectedFilter = ReminderFilter.today;
+  ReminderSortMode _sortMode = ReminderSortMode.dueDate;
   int _selectedNavIndex = 0;
   DateTime _selectedDate = DateTime.now();
   DateTime _focusedDate = DateTime.now();
   String? _error;
   bool _refreshing = false;
+  Timer? _countdownTimer;
+  int _refreshCountdown = 0;
 
   @override
   void initState() {
@@ -52,13 +66,16 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
   @override
   void dispose() {
     _controller?.dispose();
+    _countdownTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _initialize() async {
+    _countdownTimer?.cancel();
     setState(() {
       _error = null;
       _controller = null;
+      _refreshCountdown = 0;
     });
     await initializeDateFormatting('zh_CN');
     try {
@@ -82,6 +99,8 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
       setState(() {
         _controller = controller;
       });
+      _startCountdownTicker();
+      await _maybeShowPermissionPrompt(preferences);
     } on AuthException catch (error) {
       if (!mounted) {
         return;
@@ -98,6 +117,41 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
         _error = '加载提醒数据失败，请检查网络后重试。';
       });
     }
+  }
+
+  Future<void> _maybeShowPermissionPrompt(
+    SharedPreferences preferences,
+  ) async {
+    final alreadyShown = preferences.getBool(_permissionPromptKey) ?? false;
+    if (alreadyShown || !mounted) {
+      return;
+    }
+    await preferences.setBool(_permissionPromptKey, true);
+    if (!mounted) {
+      return;
+    }
+    await Future.delayed(Duration.zero);
+    if (!mounted) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('开启网络与通知权限'),
+          content: const Text(
+            'Nexdo 需要联网同步提醒数据，并使用通知权限在到期时提醒。'
+            '\n\n请在系统设置中确保已允许联网与通知，否则将无法正常收取提醒。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('我已了解'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -273,40 +327,83 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     ReminderController controller,
     List<ReminderItem> filterItems,
   ) {
+    final refreshHint = _buildRefreshCountdownHint(context);
+    final allItems = _sortReminders(filterItems);
+    final listSections = <Widget>[
+      Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: _ListSection(
+          list: _allReminderList,
+          items: allItems,
+          controller: controller,
+          onOpenReminder: (reminder) =>
+              _openForm(controller, reminder: reminder),
+        ),
+      ),
+    ];
+
+    final orderedLists = [...controller.lists]
+      ..sort((a, b) {
+        final compare = a.sortOrder.compareTo(b.sortOrder);
+        if (compare != 0) {
+          return compare;
+        }
+        return a.name.compareTo(b.name);
+      });
+
+    listSections.addAll(
+      orderedLists.map((list) {
+        final listItems = _sortReminders(
+          controller.remindersForList(
+            list.id,
+            _selectedFilter,
+          ),
+        );
+        if (listItems.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: _ListSection(
+            list: list,
+            items: listItems,
+            controller: controller,
+            onOpenReminder: (reminder) =>
+                _openForm(controller, reminder: reminder),
+          ),
+        );
+      }),
+    );
+
     return Column(
       children: [
-        _FilterBar(
-          selectedFilter: _selectedFilter,
-          onChanged: (filter) {
-            setState(() {
-              _selectedFilter = filter;
-            });
-          },
-          controller: controller,
+        refreshHint,
+        Row(
+          children: [
+            Expanded(
+              child: _FilterBar(
+                selectedFilter: _selectedFilter,
+                onChanged: (filter) {
+                  setState(() {
+                    _selectedFilter = filter;
+                  });
+                },
+                controller: controller,
+              ),
+            ),
+            _SortButton(
+              mode: _sortMode,
+              onChanged: (mode) {
+                setState(() {
+                  _sortMode = mode;
+                });
+              },
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         Expanded(
-          child: ListView(
-            children: controller.lists.map((list) {
-              final listItems = controller.remindersForList(
-                list.id,
-                _selectedFilter,
-              );
-              if (listItems.isEmpty) {
-                return const SizedBox.shrink();
-              }
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: _ListSection(
-                  list: list,
-                  items: listItems,
-                  controller: controller,
-                  onOpenReminder: (reminder) =>
-                      _openForm(controller, reminder: reminder),
-                ),
-              );
-            }).toList(),
-          ),
+          child: ListView(children: listSections),
         ),
       ],
     );
@@ -316,16 +413,26 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     ReminderController controller,
     List<ReminderItem> todayItems,
   ) {
-    final pending = [...todayItems]
-      ..retainWhere((item) => !item.isCompleted)
-      ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
-    final completed = [...todayItems]
-      ..retainWhere((item) => item.isCompleted)
-      ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
-    final orderedItems = [...pending, ...completed];
+    final orderedItems = _sortReminders(todayItems);
+    final refreshHint = _buildRefreshCountdownHint(context);
 
     return ListView(
       children: [
+        refreshHint,
+        Align(
+          alignment: Alignment.centerRight,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: _SortButton(
+              mode: _sortMode,
+              onChanged: (mode) {
+                setState(() {
+                  _sortMode = mode;
+                });
+              },
+            ),
+          ),
+        ),
         _SectionTitle(title: '今日时间线', subtitle: '聚焦今天要发生的事，把提醒真正串成执行节奏。'),
         const SizedBox(height: 12),
         if (orderedItems.isEmpty)
@@ -562,6 +669,78 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
       });
     }
   }
+
+  void _startCountdownTicker() {
+    void tick() {
+      if (!mounted) {
+        return;
+      }
+      final controller = _controller;
+      if (controller == null) {
+        return;
+      }
+      final nextTime = controller.nextSyncTime;
+      final diff = nextTime?.difference(DateTime.now()).inSeconds ?? 0;
+      final seconds = diff.clamp(0, 9999).toInt();
+      if (seconds != _refreshCountdown) {
+        setState(() {
+          _refreshCountdown = seconds;
+        });
+      }
+    }
+
+    tick();
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) => tick());
+  }
+
+  Widget _buildRefreshCountdownHint(BuildContext context) {
+    final controller = _controller;
+    if (controller == null || controller.nextSyncTime == null) {
+      return const SizedBox.shrink();
+    }
+    final seconds = _refreshCountdown;
+    final label = seconds <= 0 ? '即将自动刷新' : '距自动刷新还有 ${seconds}s';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.refresh_rounded, size: 16, color: Color(0xFF126A5A)),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF126A5A),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<ReminderItem> _sortReminders(List<ReminderItem> items) {
+    final sorted = [...items];
+    switch (_sortMode) {
+      case ReminderSortMode.dueDate:
+        sorted.sort((a, b) {
+          if (a.isCompleted != b.isCompleted) {
+            return a.isCompleted ? 1 : -1;
+          }
+          return a.dueAt.compareTo(b.dueAt);
+        });
+        break;
+      case ReminderSortMode.createdAt:
+        sorted.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        break;
+      case ReminderSortMode.title:
+        sorted.sort(
+          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+        );
+        break;
+    }
+    return sorted;
+  }
 }
 
 class _TopBar extends StatelessWidget {
@@ -608,6 +787,58 @@ class _TopBar extends StatelessWidget {
             icon: const Icon(Icons.calendar_month_rounded),
           ),
       ],
+    );
+  }
+}
+
+class _SortButton extends StatelessWidget {
+  const _SortButton({required this.mode, required this.onChanged});
+
+  final ReminderSortMode mode;
+  final ValueChanged<ReminderSortMode> onChanged;
+
+  static const _labels = {
+    ReminderSortMode.dueDate: '到期时间',
+    ReminderSortMode.createdAt: '创建时间',
+    ReminderSortMode.title: '标题',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<ReminderSortMode>(
+      tooltip: '排序方式',
+      onSelected: onChanged,
+      itemBuilder: (context) {
+        return ReminderSortMode.values
+            .map(
+              (item) => CheckedPopupMenuItem<ReminderSortMode>(
+                value: item,
+                checked: item == mode,
+                child: Text(_labels[item]!),
+              ),
+            )
+            .toList();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE0E6E3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.sort_rounded, size: 16, color: Color(0xFF126A5A)),
+            const SizedBox(width: 6),
+            Text(
+              _labels[mode]!,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: const Color(0xFF126A5A),
+                  ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -781,16 +1012,24 @@ class _ListSection extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            ...items.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _ReminderCard(
-                  reminder: item,
-                  controller: controller,
-                  onTap: () => onOpenReminder(item),
+            if (items.isEmpty)
+              Text(
+                '当前没有提醒，稍后再来或先新建一条。',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF60716B),
+                    ),
+              )
+            else
+              ...items.map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _ReminderCard(
+                    reminder: item,
+                    controller: controller,
+                    onTap: () => onOpenReminder(item),
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -1208,10 +1447,18 @@ class _EmptyPanel extends StatelessWidget {
   }
 }
 
-class _WorkspaceManagerSheet extends StatelessWidget {
+class _WorkspaceManagerSheet extends StatefulWidget {
   const _WorkspaceManagerSheet({required this.controller});
 
   final ReminderController controller;
+
+  @override
+  State<_WorkspaceManagerSheet> createState() => _WorkspaceManagerSheetState();
+}
+
+class _WorkspaceManagerSheetState extends State<_WorkspaceManagerSheet> {
+  bool _listsOrdering = false;
+  bool _groupsOrdering = false;
 
   @override
   Widget build(BuildContext context) {
@@ -1219,8 +1466,10 @@ class _WorkspaceManagerSheet extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         child: AnimatedBuilder(
-          animation: controller,
+          animation: widget.controller,
           builder: (context, _) {
+            final lists = _sortedLists();
+            final groups = _sortedGroups();
             return Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1239,34 +1488,105 @@ class _WorkspaceManagerSheet extends StatelessWidget {
                 const SizedBox(height: 18),
                 _ManagerSection(
                   title: '任务清单',
-                  values: controller.lists.map((item) => item.name).toList(),
-                  onAdd: () => _promptCreateItem(
+                  items: lists
+                      .map(
+                        (item) => _ManagerItem(
+                          id: item.id,
+                          label: item.name,
+                          onEdit: () => _promptNameDialog(
+                            context: context,
+                            title: '重命名任务清单',
+                            initialValue: item.name,
+                            onSubmit: (name) =>
+                                widget.controller.renameList(item, name),
+                          ),
+                          onDelete: () => _confirmDelete(
+                            context: context,
+                            message:
+                                '删除清单后归属其中的提醒将暂时移至“全部提醒”视图并等待下一次同步处理，你确定要继续吗？',
+                            onConfirm: () =>
+                                widget.controller.deleteList(item.id),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  emptyHint: '还没有清单，点击右上角加号新建。',
+                  reorderable: true,
+                  isProcessing: _listsOrdering,
+                  onReorder: _onListReorder,
+                  onAdd: () => _promptNameDialog(
                     context: context,
                     title: '新建任务清单',
-                    onSubmit: (name) => controller.createList(name, 0xFF126A5A),
+                    onSubmit: (name) =>
+                        widget.controller.createList(name, 0xFF126A5A),
                   ),
                 ),
                 const SizedBox(height: 14),
                 _ManagerSection(
                   title: '分组',
-                  values: controller.groups.map((item) => item.name).toList(),
-                  onAdd: () => _promptCreateItem(
+                  items: groups
+                      .map(
+                        (item) => _ManagerItem(
+                          id: item.id,
+                          label: item.name,
+                          onEdit: () => _promptNameDialog(
+                            context: context,
+                            title: '重命名分组',
+                            initialValue: item.name,
+                            onSubmit: (name) =>
+                                widget.controller.renameGroup(item, name),
+                          ),
+                          onDelete: () => _confirmDelete(
+                            context: context,
+                            message: '删除分组仅影响展示，不会移除提醒。',
+                            onConfirm: () =>
+                                widget.controller.deleteGroup(item.id),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  emptyHint: '可以把“高优先级”“例行事项”拆成不同分组。',
+                  reorderable: true,
+                  isProcessing: _groupsOrdering,
+                  onReorder: _onGroupReorder,
+                  onAdd: () => _promptNameDialog(
                     context: context,
                     title: '新建分组',
                     onSubmit: (name) =>
-                        controller.createGroup(name, Icons.folder.codePoint),
+                        widget.controller
+                            .createGroup(name, Icons.folder.codePoint),
                   ),
                 ),
                 const SizedBox(height: 14),
                 _ManagerSection(
                   title: '标签',
-                  values: controller.tags
-                      .map((item) => '#${item.name}')
+                  items: widget.controller.tags
+                      .map(
+                        (item) => _ManagerItem(
+                          id: item.id,
+                          label: '#${item.name}',
+                          onEdit: () => _promptNameDialog(
+                            context: context,
+                            title: '重命名标签',
+                            initialValue: item.name,
+                            onSubmit: (name) =>
+                                widget.controller.renameTag(item, name),
+                          ),
+                          onDelete: () => _confirmDelete(
+                            context: context,
+                            message: '确认删除标签 ${item.name} 吗？',
+                            onConfirm: () =>
+                                widget.controller.deleteTag(item.id),
+                          ),
+                        ),
+                      )
                       .toList(),
-                  onAdd: () => _promptCreateItem(
+                  emptyHint: '给提醒加上 #深度工作、#家庭 等标签以便筛选。',
+                  onAdd: () => _promptNameDialog(
                     context: context,
                     title: '新建标签',
-                    onSubmit: (name) => controller.createTag(name, 0xFF6B5FB3),
+                    onSubmit: (name) =>
+                        widget.controller.createTag(name, 0xFF6B5FB3),
                   ),
                 ),
               ],
@@ -1277,45 +1597,156 @@ class _WorkspaceManagerSheet extends StatelessWidget {
     );
   }
 
-  Future<void> _promptCreateItem({
+  List<ReminderList> _sortedLists() {
+    final lists = [...widget.controller.lists];
+    lists.sort((a, b) {
+      final compare = a.sortOrder.compareTo(b.sortOrder);
+      if (compare != 0) {
+        return compare;
+      }
+      return a.name.compareTo(b.name);
+    });
+    return lists;
+  }
+
+  List<ReminderGroup> _sortedGroups() {
+    final groups = [...widget.controller.groups];
+    groups.sort((a, b) {
+      final compare = a.sortOrder.compareTo(b.sortOrder);
+      if (compare != 0) {
+        return compare;
+      }
+      return a.name.compareTo(b.name);
+    });
+    return groups;
+  }
+
+  Future<void> _onListReorder(int oldIndex, int newIndex) async {
+    if (_listsOrdering) {
+      return;
+    }
+    final lists = _sortedLists();
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
+    }
+    final item = lists.removeAt(oldIndex);
+    lists.insert(newIndex, item);
+    setState(() {
+      _listsOrdering = true;
+    });
+    await widget.controller.applyListOrder(lists);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _listsOrdering = false;
+    });
+  }
+
+  Future<void> _onGroupReorder(int oldIndex, int newIndex) async {
+    if (_groupsOrdering) {
+      return;
+    }
+    final groups = _sortedGroups();
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
+    }
+    final item = groups.removeAt(oldIndex);
+    groups.insert(newIndex, item);
+    setState(() {
+      _groupsOrdering = true;
+    });
+    await widget.controller.applyGroupOrder(groups);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _groupsOrdering = false;
+    });
+  }
+
+  Future<void> _promptNameDialog({
     required BuildContext context,
     required String title,
+    String? initialValue,
     required Future<void> Function(String name) onSubmit,
   }) async {
-    final controller = TextEditingController();
+    final controller = TextEditingController(text: initialValue ?? '');
+    String? errorText;
     await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(title),
+              content: TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: '请输入名称',
+                  errorText: errorText,
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    final name = controller.text.trim();
+                    if (name.isEmpty) {
+                      setDialogState(() {
+                        errorText = '名称不能为空';
+                      });
+                      return;
+                    }
+                    await onSubmit(name);
+                    if (!context.mounted) return;
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('保存'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    controller.dispose();
+  }
+
+  Future<void> _confirmDelete({
+    required BuildContext context,
+    required String message,
+    required Future<void> Function() onConfirm,
+  }) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text(title),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(hintText: '请输入名称'),
-          ),
+          title: const Text('确认删除'),
+          content: Text(message),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.of(context).pop(false),
               child: const Text('取消'),
             ),
             FilledButton(
-              onPressed: () async {
-                final name = controller.text.trim();
-                if (name.isEmpty) {
-                  return;
-                }
-                await onSubmit(name);
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                }
-              },
-              child: const Text('创建'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFB85C38),
+              ),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('删除'),
             ),
           ],
         );
       },
     );
-    controller.dispose();
+    if (confirmed == true) {
+      await onConfirm();
+    }
   }
 }
 
@@ -1516,13 +1947,21 @@ String _dateKey(DateTime date) {
 class _ManagerSection extends StatelessWidget {
   const _ManagerSection({
     required this.title,
-    required this.values,
+    required this.items,
+    required this.emptyHint,
     required this.onAdd,
+    this.reorderable = false,
+    this.onReorder,
+    this.isProcessing = false,
   });
 
   final String title;
-  final List<String> values;
+  final List<_ManagerItem> items;
+  final String emptyHint;
   final VoidCallback onAdd;
+  final bool reorderable;
+  final Future<void> Function(int oldIndex, int newIndex)? onReorder;
+  final bool isProcessing;
 
   @override
   Widget build(BuildContext context) {
@@ -1548,14 +1987,135 @@ class _ManagerSection extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: values.map((item) => Chip(label: Text(item))).toList(),
-            ),
+            if (items.isEmpty)
+              Text(
+                emptyHint,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: const Color(0xFF60716B)),
+              )
+            else if (reorderable && onReorder != null)
+              _ReorderableList(
+                items: items,
+                onReorder: onReorder!,
+                isProcessing: isProcessing,
+              )
+            else
+              ...items.map(
+                (item) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(item.label),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: '编辑',
+                        onPressed: item.onEdit,
+                        icon: const Icon(Icons.edit_outlined),
+                      ),
+                      IconButton(
+                        tooltip: '删除',
+                        onPressed: item.onDelete,
+                        icon: const Icon(Icons.delete_outline),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ManagerItem {
+  const _ManagerItem({
+    required this.id,
+    required this.label,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final String id;
+  final String label;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+}
+
+class _ReorderableList extends StatelessWidget {
+  const _ReorderableList({
+    required this.items,
+    required this.onReorder,
+    required this.isProcessing,
+  });
+
+  final List<_ManagerItem> items;
+  final Future<void> Function(int oldIndex, int newIndex) onReorder;
+  final bool isProcessing;
+
+  @override
+  Widget build(BuildContext context) {
+    final listView = ReorderableListView.builder(
+      shrinkWrap: true,
+      padding: EdgeInsets.zero,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: false,
+      itemCount: items.length,
+      onReorder: (oldIndex, newIndex) async {
+        if (isProcessing) {
+          return;
+        }
+        await onReorder(oldIndex, newIndex);
+      },
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return ListTile(
+          key: ValueKey(item.id),
+          contentPadding: EdgeInsets.zero,
+          title: Text(item.label),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: '编辑',
+                onPressed: item.onEdit,
+                icon: const Icon(Icons.edit_outlined),
+              ),
+              IconButton(
+                tooltip: '删除',
+                onPressed: item.onDelete,
+                icon: const Icon(Icons.delete_outline),
+              ),
+              const SizedBox(width: 4),
+              ReorderableDragStartListener(
+                index: index,
+                child: const Icon(Icons.drag_handle_rounded),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!isProcessing) {
+      return listView;
+    }
+
+    return Stack(
+      children: [
+        Opacity(opacity: 0.5, child: listView),
+        const Positioned.fill(
+          child: Center(
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

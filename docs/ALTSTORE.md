@@ -24,13 +24,15 @@
 
 1. 执行 `flutter pub get` 与 `flutter build ios --release --no-codesign`。
 2. 将 `build/ios/iphoneos/Runner.app` 打包为 `build/altstore/Nexdo-AltStore-<version>.ipa`。
-3. 根据构建结果更新 `altstore/source.json`：写入版本号、构建日期、文件大小，以及 GitHub Release 下载 URL（默认 `https://github.com/kkw-h/Nexdo/releases/download/v<version>/...`）。
+3. 根据构建结果更新 `altstore/source.json`：生成符合 AltStore Source 规范的 `versions` 数组，并写入下载 URL（默认 `https://github.com/kkw-h/Nexdo/releases/download/v<version>/...`）与文件大小。
 
 脚本结束后会打印：
 
 - IPA 的本地路径（供 AltStore 手动加载或上传 Release）。
 - 预期的 GitHub Release 标签与下载 URL。
 - `source.json` 的托管地址（默认 `https://raw.githubusercontent.com/kkw-h/Nexdo/main/altstore/source.json`，可通过 `ALTSTORE_SOURCE_URL` 环境变量覆盖）。
+
+若需自定义版本说明，可在执行脚本前设置 `ALTSTORE_RELEASE_NOTES="更新内容..."`，该内容会写入 Source JSON 中最新版本的 `localizedDescription` 字段。
 
 > 若仅需一个通用的无签名 IPA，可继续使用 `scripts/build_ipa_nosign.sh`。
 

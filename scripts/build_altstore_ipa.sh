@@ -78,6 +78,8 @@ ICON_URL="${ALTSTORE_ICON_URL:-$ICON_URL_DEFAULT}"
 DOWNLOAD_URL_BASE="${ALTSTORE_DOWNLOAD_BASE:-https://github.com/kkw-h/Nexdo/releases/download}"
 DOWNLOAD_URL="$DOWNLOAD_URL_BASE/$RELEASE_TAG/$IPA_NAME"
 VERSION_DATE=$(date -u +%Y-%m-%d)
+VERSION_ISO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+RELEASE_NOTES="${ALTSTORE_RELEASE_NOTES:-Nexdo ${APP_VERSION} 发布}"
 
 echo "=== 构建 AltStore IPA (${APP_VERSION}) ==="
 flutter pub get
@@ -118,14 +120,26 @@ app = apps[0]
 app.setdefault("name", "Nexdo")
 app["bundleIdentifier"] = "top.kkworld.nexdo"
 app["developerName"] = app.get("developerName") or "Nexdo Team"
-app["version"] = "$APP_VERSION"
-app["versionDate"] = "$VERSION_DATE"
-app["downloadURL"] = "$DOWNLOAD_URL"
 app["iconURL"] = "$ICON_URL"
 app.setdefault("localizedDescription", "Nexdo 是一个专注于提醒和闪念管理的应用，支持清单、分组、标签以及 Go API 同步。")
 app.setdefault("screenshotURLs", [])
 app.setdefault("tintColor", "#126A5A")
-app["size"] = os.path.getsize("$IPA_PATH")
+
+for legacy_key in ("version", "versionDate", "downloadURL", "size"):
+    app.pop(legacy_key, None)
+
+versions = [v for v in app.get("versions", []) if v.get("version") != "$APP_VERSION"]
+versions.insert(
+    0,
+    {
+        "version": "$APP_VERSION",
+        "date": "$VERSION_ISO",
+        "localizedDescription": "$RELEASE_NOTES",
+        "downloadURL": "$DOWNLOAD_URL",
+        "size": os.path.getsize("$IPA_PATH"),
+    },
+)
+app["versions"] = versions
 
 source_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 PY

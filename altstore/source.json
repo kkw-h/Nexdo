@@ -7,14 +7,19 @@
       "name": "Nexdo",
       "bundleIdentifier": "top.kkworld.nexdo",
       "developerName": "Nexdo Team",
-      "version": "1.0.0",
-      "versionDate": "2026-04-13",
       "localizedDescription": "Nexdo 是一个专注于提醒和闪念管理的应用，支持清单、分组、标签以及 Go API 同步。",
-      "downloadURL": "https://github.com/kkw-h/Nexdo/releases/download/v1.0.0/Nexdo-AltStore-1.0.0.ipa",
       "iconURL": "https://raw.githubusercontent.com/kkw-h/Nexdo/main/assets/app_icon.png",
       "screenshotURLs": [],
-      "size": 8210396,
-      "tintColor": "#126A5A"
+      "tintColor": "#126A5A",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "date": "2026-04-13T10:11:06Z",
+          "localizedDescription": "Nexdo 1.0.0 发布",
+          "downloadURL": "https://github.com/kkw-h/Nexdo/releases/download/v1.0.0/Nexdo-AltStore-1.0.0.ipa",
+          "size": 8210396
+        }
+      ]
     }
   ]
 }

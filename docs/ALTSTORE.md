@@ -10,7 +10,7 @@
 
 ## 1. 构建 AltStore 版本 `.ipa`
 
-项目根目录已经提供脚本 `scripts/build_altstore_ipa.sh`，它会：
+项目根目录已经提供脚本 `scripts/build_ipa_nosign.sh`，它会：
 
 1. 运行 `flutter pub get`
 2. 执行 `flutter build ios --release --no-codesign`
@@ -20,10 +20,16 @@
 命令：
 
 ```bash
-./scripts/build_altstore_ipa.sh
+./scripts/build_ipa_nosign.sh
 ```
 
-执行完成后，可在 `build/altstore/Nexdo-AltStore.ipa` 找到未签名的安装包。
+执行完成后，可在 `build/ios/ipa/nexdo-<version>-nosign.ipa` 找到未签名的安装包。
+
+也可以手动指定版本号：
+
+```bash
+./scripts/build_ipa_nosign.sh 1.0.0
+```
 
 > AltStore 会在安装时使用你的 Apple ID 重新签名，因此此处无需配置任何证书。
 

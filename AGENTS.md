@@ -28,4 +28,4 @@ Flutter now relies on the Nexdo API running at `https://nexdo.kkw-cloud.cc/api/v
 Incremental sync first calls `GET /api/v1/sync/bootstrap` to cache the workspace plus `server_time`, then repeatedly hits `GET /api/v1/sync/changes?since=<server_time>`; the repository merges `deleted_*_ids` into local state and ReminderController polls every 30 seconds so reminders stay fresh without manual refresh.
 
 ## API Docs
-http://127.0.0.1:8080/api/v1/docs
+https://nexdo.kkw-cloud.cc/api/v1/docs

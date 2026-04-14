@@ -198,6 +198,40 @@ class AuthRepository implements AccessTokenProvider {
     throw const AuthException('用户信息格式错误');
   }
 
+  Future<List<Map<String, dynamic>>> getDevices() async {
+    final session = await _ensureValidSession();
+    if (session == null) {
+      throw const AuthException('登录已失效，请重新登录');
+    }
+    final data = await _safeRequest(
+      () => _apiClient.request(
+        method: 'GET',
+        path: '/me/devices',
+        accessToken: session.accessToken,
+      ),
+      defaultMessage: '获取设备列表失败',
+    );
+    if (data is List) {
+      return List<Map<String, dynamic>>.from(data);
+    }
+    return [];
+  }
+
+  Future<void> logoutDevice(String deviceId) async {
+    final session = await _ensureValidSession();
+    if (session == null) {
+      throw const AuthException('登录已失效，请重新登录');
+    }
+    await _safeRequest(
+      () => _apiClient.request(
+        method: 'DELETE',
+        path: '/me/devices/$deviceId',
+        accessToken: session.accessToken,
+      ),
+      defaultMessage: '下线设备失败',
+    );
+  }
+
   Future<dynamic> _safeRequest(
     Future<dynamic> Function() task, {
     required String defaultMessage,

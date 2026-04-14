@@ -51,8 +51,9 @@ class ReminderController extends ChangeNotifier {
   List<ReminderItem> remindersFor(ReminderFilter filter) {
     switch (filter) {
       case ReminderFilter.today:
-        final todays =
-            _workspace.reminders.where((item) => item.isDueToday).toList();
+        final todays = _workspace.reminders
+            .where((item) => item.isDueToday)
+            .toList();
         todays.sort((a, b) {
           if (a.isCompleted != b.isCompleted) {
             return a.isCompleted ? 1 : -1;
@@ -220,31 +221,22 @@ class ReminderController extends ChangeNotifier {
     if (_workspace.lists.isEmpty) {
       return 0;
     }
-    return _workspace.lists
-            .map((item) => item.sortOrder)
-            .reduce(max) +
-        1;
+    return _workspace.lists.map((item) => item.sortOrder).reduce(max) + 1;
   }
 
   int _nextGroupSortOrder() {
     if (_workspace.groups.isEmpty) {
       return 0;
     }
-    return _workspace.groups
-            .map((item) => item.sortOrder)
-            .reduce(max) +
-        1;
+    return _workspace.groups.map((item) => item.sortOrder).reduce(max) + 1;
   }
 
   void _startPolling() {
     _pollingTimer?.cancel();
     _updateNextSyncTime(notify: true);
-    _pollingTimer = Timer.periodic(
-      _pollingInterval,
-      (_) {
-        _syncFromServer(suppressErrors: true);
-      },
-    );
+    _pollingTimer = Timer.periodic(_pollingInterval, (_) {
+      _syncFromServer(suppressErrors: true);
+    });
   }
 
   Future<void> _syncFromServer({bool suppressErrors = false}) async {

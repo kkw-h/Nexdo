@@ -160,11 +160,7 @@ class ReminderTag {
   final String name;
   final int colorValue;
 
-  ReminderTag copyWith({
-    String? id,
-    String? name,
-    int? colorValue,
-  }) {
+  ReminderTag copyWith({String? id, String? name, int? colorValue}) {
     return ReminderTag(
       id: id ?? this.id,
       name: name ?? this.name,

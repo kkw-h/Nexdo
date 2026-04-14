@@ -51,9 +51,11 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
     _selectedDateTime =
         reminder?.dueAt ?? DateTime.now().add(const Duration(hours: 2));
     _selectedListId =
-        reminder?.listId ?? (initialLists.isNotEmpty ? initialLists.first.id : '');
+        reminder?.listId ??
+        (initialLists.isNotEmpty ? initialLists.first.id : '');
     _selectedGroupId =
-        reminder?.groupId ?? (initialGroups.isNotEmpty ? initialGroups.first.id : '');
+        reminder?.groupId ??
+        (initialGroups.isNotEmpty ? initialGroups.first.id : '');
     _selectedTagIds = {...?reminder?.tagIds};
     _notificationEnabled = reminder?.notificationEnabled ?? true;
     _repeatRule = reminder?.repeatRule ?? ReminderRepeatRule.none;

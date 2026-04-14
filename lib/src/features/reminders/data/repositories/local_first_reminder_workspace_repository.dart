@@ -265,25 +265,23 @@ class LocalFirstReminderWorkspaceRepository
       });
 
     List<ReminderList> sortLists(List<ReminderList> items) {
-      return [...items]
-        ..sort((a, b) {
-          final compare = a.sortOrder.compareTo(b.sortOrder);
-          if (compare != 0) {
-            return compare;
-          }
-          return a.name.compareTo(b.name);
-        });
+      return [...items]..sort((a, b) {
+        final compare = a.sortOrder.compareTo(b.sortOrder);
+        if (compare != 0) {
+          return compare;
+        }
+        return a.name.compareTo(b.name);
+      });
     }
 
     List<ReminderGroup> sortGroups(List<ReminderGroup> items) {
-      return [...items]
-        ..sort((a, b) {
-          final compare = a.sortOrder.compareTo(b.sortOrder);
-          if (compare != 0) {
-            return compare;
-          }
-          return a.name.compareTo(b.name);
-        });
+      return [...items]..sort((a, b) {
+        final compare = a.sortOrder.compareTo(b.sortOrder);
+        if (compare != 0) {
+          return compare;
+        }
+        return a.name.compareTo(b.name);
+      });
     }
 
     return workspace.copyWith(

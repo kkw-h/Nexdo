@@ -10,6 +10,7 @@ import 'package:table_calendar/table_calendar.dart';
 import '../../auth/data/auth_repository.dart'
     show AuthRepository, AuthException;
 import '../../auth/domain/auth_user.dart';
+import '../../auth/presentation/device_management_page.dart';
 import 'package:nexdo/src/core/network/api_client.dart';
 import '../application/reminder_notification_service.dart';
 import '../data/datasources/reminder_local_data_source.dart';
@@ -119,9 +120,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     }
   }
 
-  Future<void> _maybeShowPermissionPrompt(
-    SharedPreferences preferences,
-  ) async {
+  Future<void> _maybeShowPermissionPrompt(SharedPreferences preferences) async {
     final alreadyShown = preferences.getBool(_permissionPromptKey) ?? false;
     if (alreadyShown || !mounted) {
       return;
@@ -354,10 +353,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     listSections.addAll(
       orderedLists.map((list) {
         final listItems = _sortReminders(
-          controller.remindersForList(
-            list.id,
-            _selectedFilter,
-          ),
+          controller.remindersForList(list.id, _selectedFilter),
         );
         if (listItems.isEmpty) {
           return const SizedBox.shrink();
@@ -402,9 +398,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
           ],
         ),
         const SizedBox(height: 16),
-        Expanded(
-          child: ListView(children: listSections),
-        ),
+        Expanded(child: ListView(children: listSections)),
       ],
     );
   }
@@ -419,11 +413,17 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     return ListView(
       children: [
         refreshHint,
-        Align(
-          alignment: Alignment.centerRight,
-          child: Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: _SortButton(
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '今日任务',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ),
+            _SortButton(
               mode: _sortMode,
               onChanged: (mode) {
                 setState(() {
@@ -431,17 +431,27 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                 });
               },
             ),
-          ),
+          ],
         ),
-        _SectionTitle(title: '今日时间线', subtitle: '聚焦今天要发生的事，把提醒真正串成执行节奏。'),
         const SizedBox(height: 12),
+        if (orderedItems.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Text(
+              '${orderedItems.where((item) => !item.isCompleted).length} 条待处理',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF60716B)),
+            ),
+          ),
+        const SizedBox(height: 2),
         if (orderedItems.isEmpty)
           const _EmptyPanel(title: '今天还没有排程', subtitle: '加一条提醒，时间线就会按顺序展示出来。')
         else
           ...orderedItems.map(
             (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _TimelineTile(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _TodayReminderRow(
                 reminder: item,
                 controller: controller,
                 onOpenReminder: () => _openForm(controller, reminder: item),
@@ -613,6 +623,27 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
             onTap: () => _openWorkspaceManager(controller),
           ),
         ),
+        const SizedBox(height: 16),
+        Card(
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 18,
+              vertical: 8,
+            ),
+            leading: const Icon(Icons.devices_rounded),
+            title: const Text('设备管理'),
+            subtitle: const Text('查看当前账号的在线设备'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) =>
+                      DeviceManagementPage(repository: widget.authRepository),
+                ),
+              );
+            },
+          ),
+        ),
       ],
     );
   }
@@ -710,9 +741,9 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
           const SizedBox(width: 6),
           Text(
             label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF126A5A),
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF126A5A)),
           ),
         ],
       ),
@@ -832,9 +863,9 @@ class _SortButton extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               _labels[mode]!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: const Color(0xFF126A5A),
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF126A5A)),
             ),
           ],
         ),
@@ -1016,8 +1047,8 @@ class _ListSection extends StatelessWidget {
               Text(
                 '当前没有提醒，稍后再来或先新建一条。',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF60716B),
-                    ),
+                  color: const Color(0xFF60716B),
+                ),
               )
             else
               ...items.map(
@@ -1318,6 +1349,131 @@ class _TimelineTile extends StatelessWidget {
   }
 }
 
+class _TodayReminderRow extends StatelessWidget {
+  const _TodayReminderRow({
+    required this.reminder,
+    required this.controller,
+    required this.onOpenReminder,
+  });
+
+  final ReminderItem reminder;
+  final ReminderController controller;
+  final VoidCallback onOpenReminder;
+
+  @override
+  Widget build(BuildContext context) {
+    final formatter = DateFormat('HH:mm');
+    final list = controller.findList(reminder.listId);
+    final isOverdue = reminder.isOverdue;
+    final isCompleted = reminder.isCompleted;
+    final backgroundColor = isOverdue
+        ? const Color(0xFFFFF4EF)
+        : (isCompleted ? const Color(0xFFF4F6F4) : const Color(0xFFF8FBF9));
+    final borderColor = isOverdue
+        ? const Color(0xFFF0C8B9)
+        : const Color(0xFFE0E6E3);
+    final titleColor = isCompleted
+        ? const Color(0xFF9AA6A1)
+        : const Color(0xFF163E36);
+    final subtitleColor = isCompleted
+        ? const Color(0xFF9AA6A1)
+        : const Color(0xFF60716B);
+    final statusLabel = isCompleted
+        ? '已完成'
+        : isOverdue
+        ? '超时未完成'
+        : (list?.name ?? '未分类清单');
+
+    return Material(
+      color: backgroundColor,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onOpenReminder,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: borderColor),
+          ),
+          child: Row(
+            children: [
+              Container(
+                constraints: const BoxConstraints(minWidth: 68),
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isOverdue
+                      ? const Color(0xFFFBE0D6)
+                      : const Color(0xFFEAF2EE),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  formatter.format(reminder.dueAt),
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.visible,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: isOverdue
+                        ? const Color(0xFFB85C38)
+                        : const Color(0xFF126A5A),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      reminder.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        decoration: isCompleted
+                            ? TextDecoration.lineThrough
+                            : TextDecoration.none,
+                        color: titleColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      statusLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: subtitleColor),
+                    ),
+                    if (reminder.note?.isNotEmpty == true) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        reminder.note!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(color: subtitleColor),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Checkbox(
+                value: reminder.isCompleted,
+                onChanged: (value) =>
+                    controller.toggleCompletion(reminder, value ?? false),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CalendarDayCell extends StatelessWidget {
   const _CalendarDayCell({
     required this.day,
@@ -1552,9 +1708,10 @@ class _WorkspaceManagerSheetState extends State<_WorkspaceManagerSheet> {
                   onAdd: () => _promptNameDialog(
                     context: context,
                     title: '新建分组',
-                    onSubmit: (name) =>
-                        widget.controller
-                            .createGroup(name, Icons.folder.codePoint),
+                    onSubmit: (name) => widget.controller.createGroup(
+                      name,
+                      Icons.folder.codePoint,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -1990,10 +2147,9 @@ class _ManagerSection extends StatelessWidget {
             if (items.isEmpty)
               Text(
                 emptyHint,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: const Color(0xFF60716B)),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF60716B),
+                ),
               )
             else if (reorderable && onReorder != null)
               _ReorderableList(

@@ -128,7 +128,9 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
     await _authorizedRequest(method: 'DELETE', path: '/lists/$id');
     final workspace = await _ensureWorkspace();
     final updated = workspace.copyWith(
-      lists: _sortLists(workspace.lists.where((item) => item.id != id).toList()),
+      lists: _sortLists(
+        workspace.lists.where((item) => item.id != id).toList(),
+      ),
     );
     return _updateWorkspace(updated);
   }
@@ -167,8 +169,9 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
     await _authorizedRequest(method: 'DELETE', path: '/groups/$id');
     final workspace = await _ensureWorkspace();
     final updated = workspace.copyWith(
-      groups:
-          _sortGroups(workspace.groups.where((item) => item.id != id).toList()),
+      groups: _sortGroups(
+        workspace.groups.where((item) => item.id != id).toList(),
+      ),
     );
     return _updateWorkspace(updated);
   }
@@ -223,15 +226,19 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
     return _refreshWorkspace(forceBootstrap: true);
   }
 
-  Future<ReminderWorkspace> _refreshWorkspace({bool forceBootstrap = false}) async {
-    final shouldBootstrap = forceBootstrap || _serverTime == null || _cache == null;
+  Future<ReminderWorkspace> _refreshWorkspace({
+    bool forceBootstrap = false,
+  }) async {
+    final shouldBootstrap =
+        forceBootstrap || _serverTime == null || _cache == null;
     final path = shouldBootstrap ? '/sync/bootstrap' : '/sync/changes';
     final data =
         await _authorizedRequest(
-          method: 'GET',
-          path: path,
-          queryParameters: shouldBootstrap ? null : {'since': _serverTime},
-        ) as Map<String, dynamic>?;
+              method: 'GET',
+              path: path,
+              queryParameters: shouldBootstrap ? null : {'since': _serverTime},
+            )
+            as Map<String, dynamic>?;
     if (data == null) {
       throw const AuthException('获取提醒数据失败');
     }
@@ -432,26 +439,26 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
 
   Map<String, dynamic> _reminderPayload(ReminderItem reminder) {
     String formatDate(DateTime dateTime) {
-      final naive = DateTime(
-        dateTime.year,
-        dateTime.month,
-        dateTime.day,
-        dateTime.hour,
-        dateTime.minute,
-        dateTime.second,
-        dateTime.millisecond,
-        dateTime.microsecond,
-      );
-      final iso = naive.toIso8601String();
-      final trimmed = iso.endsWith('Z')
-          ? iso.substring(0, iso.length - 1)
-          : iso;
-      return '$trimmed+08:00';
+      final local = dateTime.toLocal();
+      final offset = local.timeZoneOffset;
+      final sign = offset.isNegative ? '-' : '+';
+      final totalMinutes = offset.inMinutes.abs();
+      final offsetHours = (totalMinutes ~/ 60).toString().padLeft(2, '0');
+      final offsetMinutes = (totalMinutes % 60).toString().padLeft(2, '0');
+      final year = local.year.toString().padLeft(4, '0');
+      final month = local.month.toString().padLeft(2, '0');
+      final day = local.day.toString().padLeft(2, '0');
+      final hour = local.hour.toString().padLeft(2, '0');
+      final minute = local.minute.toString().padLeft(2, '0');
+      final second = local.second.toString().padLeft(2, '0');
+      return '$year-$month-$day'
+          'T$hour:$minute:$second'
+          '$sign$offsetHours:$offsetMinutes';
     }
 
     return {
       'title': reminder.title,
-      'note': reminder.note,
+      'note': reminder.note ?? '',
       'due_at': formatDate(reminder.dueAt),
       'list_id': reminder.listId,
       'group_id': reminder.groupId,
@@ -499,25 +506,23 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
   }
 
   List<ReminderList> _sortLists(List<ReminderList> items) {
-    return [...items]
-      ..sort((a, b) {
-        final order = a.sortOrder.compareTo(b.sortOrder);
-        if (order != 0) {
-          return order;
-        }
-        return a.name.compareTo(b.name);
-      });
+    return [...items]..sort((a, b) {
+      final order = a.sortOrder.compareTo(b.sortOrder);
+      if (order != 0) {
+        return order;
+      }
+      return a.name.compareTo(b.name);
+    });
   }
 
   List<ReminderGroup> _sortGroups(List<ReminderGroup> items) {
-    return [...items]
-      ..sort((a, b) {
-        final order = a.sortOrder.compareTo(b.sortOrder);
-        if (order != 0) {
-          return order;
-        }
-        return a.name.compareTo(b.name);
-      });
+    return [...items]..sort((a, b) {
+      final order = a.sortOrder.compareTo(b.sortOrder);
+      if (order != 0) {
+        return order;
+      }
+      return a.name.compareTo(b.name);
+    });
   }
 
   List<ReminderTag> _sortTags(List<ReminderTag> items) {

@@ -11,6 +11,12 @@
       "iconURL": "https://raw.githubusercontent.com/kkw-h/Nexdo/main/assets/app_icon.png",
       "screenshotURLs": [],
       "tintColor": "#126A5A",
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {
+          "NSUserNotificationsUsageDescription": "Nexdo 会使用通知来提醒你按时处理事项。"
+        }
+      },
       "versions": [
         {
           "version": "1.0.2",

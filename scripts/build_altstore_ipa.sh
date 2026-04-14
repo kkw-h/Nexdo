@@ -124,6 +124,12 @@ app["iconURL"] = "$ICON_URL"
 app.setdefault("localizedDescription", "Nexdo 是一个专注于提醒和闪念管理的应用，支持清单、分组、标签以及 Go API 同步。")
 app.setdefault("screenshotURLs", [])
 app.setdefault("tintColor", "#126A5A")
+app["appPermissions"] = {
+    "entitlements": [],
+    "privacy": {
+        "NSUserNotificationsUsageDescription": "Nexdo 会使用通知来提醒你按时处理事项。"
+    },
+}
 
 for legacy_key in ("version", "versionDate", "downloadURL", "size"):
     app.pop(legacy_key, None)

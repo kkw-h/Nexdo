@@ -151,7 +151,7 @@ cat <<EOF
 [AltStore] 下载 URL: $DOWNLOAD_URL
 
 下一步:
-1. 将 $IPA_PATH 上传到 GitHub Release ($RELEASE_TAG) 并命名为 $IPA_NAME。
+1. 将 $IPA_PATH 上传到 GitHub Release ($RELEASE_TAG) 并命名为 ${IPA_NAME}。
 2. 确保 altstore/source.json 也托管在可公开访问的 $SOURCE_URL。
 3. 在 AltStore 中添加该 Source URL，即可安装/更新 Nexdo。
 EOF

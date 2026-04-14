@@ -154,6 +154,6 @@ class NexdoApiClient {
     if (envBase.isNotEmpty) {
       return envBase;
     }
-    return 'https://nexdo.kkworld.top/api/v1';
+    return 'https://nexdo.kkw-cloud.cc/api/v1';
   }
 }

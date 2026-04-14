@@ -13,6 +13,13 @@
       "tintColor": "#126A5A",
       "versions": [
         {
+          "version": "1.0.1",
+          "date": "2026-04-14T02:46:58Z",
+          "localizedDescription": "Nexdo 1.0.1 发布，更新默认 API 域名并保留提醒轮询与排序增强。",
+          "downloadURL": "https://github.com/kkw-h/Nexdo/releases/download/v1.0.1/Nexdo-AltStore-1.0.1.ipa",
+          "size": 8279264
+        },
+        {
           "version": "1.0.0",
           "date": "2026-04-13T10:15:33Z",
           "localizedDescription": "使用 build_ipa_nosign.sh 打包并更新 AltStore 源",

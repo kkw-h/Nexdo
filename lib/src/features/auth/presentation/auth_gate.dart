@@ -35,6 +35,12 @@ class _AuthGateState extends State<AuthGate> {
     AuthUser? user;
     try {
       user = await repository.getCurrentUser();
+      if (user != null) {
+        final refreshed = await repository.refreshSessionOnAppLaunch();
+        if (refreshed != null) {
+          user = refreshed;
+        }
+      }
     } catch (_) {
       user = null;
     }

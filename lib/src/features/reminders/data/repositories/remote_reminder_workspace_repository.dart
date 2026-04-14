@@ -263,16 +263,27 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
     Map<String, dynamic>? body,
     Map<String, dynamic>? queryParameters,
   }) async {
-    final token = await _tokenProvider.requireAccessToken();
-    try {
-      return await _apiClient.request(
+    Future<dynamic> send(String token) {
+      return _apiClient.request(
         method: method,
         path: path,
         body: body,
         queryParameters: queryParameters,
         accessToken: token,
       );
+    }
+
+    final token = await _tokenProvider.requireAccessToken();
+    try {
+      return await send(token);
     } on ApiException catch (error) {
+      if (error.statusCode == 401) {
+        final refreshedToken = await _tokenProvider.refreshAccessToken();
+        if (refreshedToken != null && refreshedToken.isNotEmpty) {
+          return await send(refreshedToken);
+        }
+        throw const AuthException('登录已失效，请重新登录');
+      }
       throw AuthException(error.message ?? '接口调用失败');
     }
   }

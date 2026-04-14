@@ -19,6 +19,13 @@
       },
       "versions": [
         {
+          "version": "1.0.3",
+          "date": "2026-04-14T07:51:45Z",
+          "localizedDescription": "Nexdo 1.0.3 发布",
+          "downloadURL": "https://github.com/kkw-h/Nexdo/releases/download/v1.0.3/Nexdo-AltStore-1.0.3.ipa",
+          "size": 8292839
+        },
+        {
           "version": "1.0.2",
           "date": "2026-04-14T06:25:44Z",
           "localizedDescription": "Nexdo 1.0.2 发布",

@@ -306,6 +306,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.message)));
+      await widget.onLogout();
     } catch (_) {
       if (!mounted) {
         return;

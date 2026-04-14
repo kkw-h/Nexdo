@@ -15,6 +15,8 @@ class AuthException implements Exception {
 
 abstract class AccessTokenProvider {
   Future<String> requireAccessToken();
+
+  Future<String?> refreshAccessToken();
 }
 
 class AuthRepository implements AccessTokenProvider {
@@ -115,6 +117,17 @@ class AuthRepository implements AccessTokenProvider {
     return session.accessToken;
   }
 
+  @override
+  Future<String?> refreshAccessToken() async {
+    final existing = await _readSession();
+    if (existing == null) {
+      return null;
+    }
+    final refreshed = await _refreshSession(existing);
+    await _saveSession(refreshed);
+    return refreshed.accessToken;
+  }
+
   Future<AuthUser?> cachedUser() async {
     final session = await _readSession();
     return session?.user;
@@ -153,6 +166,33 @@ class AuthRepository implements AccessTokenProvider {
       defaultMessage: '登录状态已失效，请重新登录',
     );
     return _mapPayloadToSession(data, fallbackUser: session.user);
+  }
+
+  Future<AuthUser?> refreshSessionOnAppLaunch() async {
+    final session = await _readSession();
+    if (session == null) {
+      return null;
+    }
+    try {
+      final data = await _apiClient.request(
+        method: 'POST',
+        path: '/auth/refresh',
+        body: {'refresh_token': session.refreshToken},
+      );
+      final refreshed = _mapPayloadToSession(data, fallbackUser: session.user);
+      await _saveSession(refreshed);
+      return refreshed.user;
+    } on ApiException catch (error) {
+      if (error.statusCode == 401) {
+        await _clearSession();
+        return null;
+      }
+      return session.user;
+    } on AuthException {
+      rethrow;
+    } catch (_) {
+      return session.user;
+    }
   }
 
   Future<AuthUser> _persistSessionFromPayload(dynamic payload) async {

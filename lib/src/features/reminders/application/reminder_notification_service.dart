@@ -73,6 +73,7 @@ class ReminderNotificationService {
 
     if (!reminder.notificationEnabled ||
         reminder.isCompleted ||
+        !reminder.hasSpecificTime ||
         reminder.dueAt.isBefore(DateTime.now())) {
       return;
     }

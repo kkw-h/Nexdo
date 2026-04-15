@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 
+import '../../../core/layout/app_layout.dart';
 import '../../../core/network/api_client.dart';
 import '../data/auth_repository.dart';
 import '../domain/auth_user.dart';
@@ -60,7 +61,9 @@ class _AuthPageState extends State<AuthPage> {
         child: SafeArea(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
+              constraints: const BoxConstraints(
+                maxWidth: AppLayout.authCardMaxWidth,
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Card(

@@ -243,6 +243,13 @@ class ReminderItem {
 
   bool get isOverdue => !isCompleted && dueAt.isBefore(DateTime.now());
 
+  bool get hasSpecificTime =>
+      dueAt.hour != 0 ||
+      dueAt.minute != 0 ||
+      dueAt.second != 0 ||
+      dueAt.millisecond != 0 ||
+      dueAt.microsecond != 0;
+
   bool get isDueToday {
     final now = DateTime.now();
     return dueAt.year == now.year &&

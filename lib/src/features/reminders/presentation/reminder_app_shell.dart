@@ -963,11 +963,12 @@ class _ReminderCard extends StatelessWidget {
     final list = controller.findList(reminder.listId);
     final group = controller.findGroup(reminder.groupId);
     final dateFormatter = DateFormat('M月d日', 'zh_CN');
-    final timeFormatter = DateFormat('HH:mm', 'zh_CN');
     final dateLabel = reminder.isDueToday
         ? '今天'
         : dateFormatter.format(reminder.dueAt);
-    final timeLabel = timeFormatter.format(reminder.dueAt);
+    final timeLabel = reminder.hasSpecificTime
+        ? DateFormat('HH:mm', 'zh_CN').format(reminder.dueAt)
+        : '全天';
     final statusLabel = reminder.isCompleted
         ? '已完成'
         : reminder.isOverdue
@@ -1223,7 +1224,6 @@ class _TimelineTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formatter = DateFormat('HH:mm');
     final list = controller.findList(reminder.listId);
     final isOverdue = reminder.isOverdue;
     final isCompleted = reminder.isCompleted;
@@ -1256,7 +1256,9 @@ class _TimelineTile extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
-                        formatter.format(reminder.dueAt),
+                        reminder.hasSpecificTime
+                            ? DateFormat('HH:mm').format(reminder.dueAt)
+                            : '全天',
                         maxLines: 1,
                         softWrap: false,
                         overflow: TextOverflow.visible,
@@ -1355,7 +1357,6 @@ class _TodayReminderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formatter = DateFormat('HH:mm');
     final list = controller.findList(reminder.listId);
     final isOverdue = reminder.isOverdue;
     final isCompleted = reminder.isCompleted;
@@ -1402,7 +1403,9 @@ class _TodayReminderRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  formatter.format(reminder.dueAt),
+                  reminder.hasSpecificTime
+                      ? DateFormat('HH:mm').format(reminder.dueAt)
+                      : '全天',
                   maxLines: 1,
                   softWrap: false,
                   overflow: TextOverflow.visible,

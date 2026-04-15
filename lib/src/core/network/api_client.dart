@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../device/device_identity.dart';
 import 'api_exception.dart';
@@ -34,20 +36,11 @@ class NexdoApiClient {
     String? accessToken,
   }) async {
     final uri = _buildUri(path, queryParameters);
-    final identity = await _deviceIdentityProvider.ensureIdentity();
-
-    final requestHeaders = <String, String>{
-      'Accept': 'application/json',
-      'User-Agent': identity.userAgent,
-      'X-Nexdo-Device-ID': identity.deviceId,
-      if (body != null) 'Content-Type': 'application/json; charset=utf-8',
-    };
-    if (accessToken != null && accessToken.isNotEmpty) {
-      requestHeaders['Authorization'] = 'Bearer $accessToken';
-    }
-    if (headers != null) {
-      requestHeaders.addAll(headers);
-    }
+    final requestHeaders = await _buildHeaders(
+      accessToken: accessToken,
+      headers: headers,
+      hasJsonBody: body != null,
+    );
 
     final normalizedMethod = method.toUpperCase().trim();
     final encodedBody = body == null ? null : jsonEncode(body);
@@ -97,6 +90,159 @@ class NexdoApiClient {
       throw const ApiException(statusCode: -1, message: '请求超时，请稍后再试');
     }
 
+    return _decodeResponse(response);
+  }
+
+  Future<dynamic> requestMultipart({
+    required String method,
+    required String path,
+    Map<String, String>? fields,
+    String? fileFieldName,
+    String? filePath,
+    MediaType? fileContentType,
+    Map<String, String>? headers,
+    String? accessToken,
+  }) async {
+    final uri = _buildUri(path, null);
+    final request = http.MultipartRequest(method.toUpperCase().trim(), uri);
+    request.headers.addAll(
+      await _buildHeaders(accessToken: accessToken, headers: headers),
+    );
+    if (fields != null && fields.isNotEmpty) {
+      request.fields.addAll(fields);
+    }
+    if (fileFieldName != null &&
+        filePath != null &&
+        filePath.isNotEmpty &&
+        File(filePath).existsSync()) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          fileFieldName,
+          filePath,
+          contentType: fileContentType,
+        ),
+      );
+    }
+
+    http.StreamedResponse streamedResponse;
+    try {
+      streamedResponse = await _httpClient.send(request).timeout(_timeout);
+    } on SocketException catch (error, stackTrace) {
+      developer.log(
+        '[NexdoApiClient] 网络不可用: ${error.message}',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      throw ApiException(
+        statusCode: -1,
+        message: '网络不可用，请检查连接: ${error.message}',
+      );
+    } on http.ClientException catch (error) {
+      throw ApiException(statusCode: -1, message: '请求失败: ${error.message}');
+    } on TimeoutException {
+      throw const ApiException(statusCode: -1, message: '请求超时，请稍后再试');
+    }
+
+    final response = await http.Response.fromStream(streamedResponse);
+    return _decodeResponse(response);
+  }
+
+  Future<Uint8List> downloadBytes({
+    String? path,
+    Uri? uri,
+    Map<String, dynamic>? queryParameters,
+    Map<String, String>? headers,
+    String? accessToken,
+  }) async {
+    final targetUri = uri ?? _buildUri(path ?? '', queryParameters);
+    final requestHeaders = await _buildHeaders(
+      accessToken: accessToken,
+      headers: headers,
+    );
+    http.Response response;
+    try {
+      response = await _httpClient
+          .get(targetUri, headers: requestHeaders)
+          .timeout(_timeout);
+    } on SocketException catch (error, stackTrace) {
+      developer.log(
+        '[NexdoApiClient] 网络不可用: ${error.message}',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      throw ApiException(
+        statusCode: -1,
+        message: '网络不可用，请检查连接: ${error.message}',
+      );
+    } on http.ClientException catch (error) {
+      throw ApiException(statusCode: -1, message: '请求失败: ${error.message}');
+    } on TimeoutException {
+      throw const ApiException(statusCode: -1, message: '请求超时，请稍后再试');
+    }
+
+    if (response.statusCode >= 400) {
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = response.body;
+      }
+      if (decoded is Map<String, dynamic>) {
+        throw ApiException(
+          statusCode: response.statusCode,
+          code: decoded['code'] as int?,
+          message: decoded['message'] as String? ?? '请求失败',
+          details: decoded['error'],
+        );
+      }
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: '请求失败(${response.statusCode})',
+        details: decoded,
+      );
+    }
+
+    return response.bodyBytes;
+  }
+
+  Future<Map<String, String>> _buildHeaders({
+    Map<String, String>? headers,
+    String? accessToken,
+    bool hasJsonBody = false,
+  }) async {
+    final identity = await _deviceIdentityProvider.ensureIdentity();
+    final requestHeaders = <String, String>{
+      'Accept': 'application/json',
+      'User-Agent': identity.userAgent,
+      'X-Nexdo-Device-ID': _sanitizeHeaderValue(identity.deviceId),
+      'X-Nexdo-Device-Name': _sanitizeHeaderValue(identity.deviceName),
+      'X-Nexdo-Device-Platform': _sanitizeHeaderValue(identity.platform),
+      if (hasJsonBody) 'Content-Type': 'application/json; charset=utf-8',
+    };
+    if (accessToken != null && accessToken.isNotEmpty) {
+      requestHeaders['Authorization'] = 'Bearer $accessToken';
+    }
+    if (headers != null) {
+      requestHeaders.addAll(headers);
+    }
+    return requestHeaders.map(
+      (key, value) => MapEntry(key, _sanitizeHeaderValue(value)),
+    );
+  }
+
+  String _sanitizeHeaderValue(String value) {
+    final buffer = StringBuffer();
+    for (final codeUnit in value.codeUnits) {
+      if (codeUnit >= 32 && codeUnit <= 126) {
+        buffer.writeCharCode(codeUnit);
+      } else {
+        buffer.write('?');
+      }
+    }
+    return buffer.toString();
+  }
+
+  dynamic _decodeResponse(http.Response response) {
     if (response.body.isEmpty) {
       return null;
     }

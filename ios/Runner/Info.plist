@@ -8,6 +8,10 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>Nexdo</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Nexdo 需要使用麦克风来录制闪念语音。</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Nexdo 会将你的语音转成文字，方便快速记录闪念。</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>Nexdo 会使用通知来提醒你按时处理事项。</string>
 	<key>CFBundleExecutable</key>

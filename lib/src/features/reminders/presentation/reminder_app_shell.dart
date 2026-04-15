@@ -6,6 +6,9 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:nexdo/src/features/quick_notes/data/quick_note_local_data_source.dart';
+import 'package:nexdo/src/features/quick_notes/data/quick_notes_repository.dart';
+import 'package:nexdo/src/features/quick_notes/presentation/quick_notes_page.dart';
 
 import '../../auth/data/auth_repository.dart'
     show AuthRepository, AuthException;
@@ -42,7 +45,12 @@ enum ReminderSortMode { dueDate, createdAt, title }
 
 class _ReminderAppShellState extends State<ReminderAppShell> {
   static const _permissionPromptKey = 'permission_prompt.shown';
+  final GlobalKey<QuickNotesPageState> _quickNotesPageKey =
+      GlobalKey<QuickNotesPageState>();
   ReminderController? _controller;
+  QuickNoteLocalDataSource? _quickNoteDataSource;
+  QuickNotesRepository? _quickNotesRepository;
+  QuickNotesDiagnostics? _quickNotesDiagnostics;
   ReminderFilter _selectedFilter = ReminderFilter.all;
   ReminderSortMode _sortMode = ReminderSortMode.dueDate;
   int _selectedNavIndex = 0;
@@ -94,6 +102,15 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
 
       setState(() {
         _controller = controller;
+        _quickNoteDataSource = QuickNoteLocalDataSource(
+          preferences,
+          userId: widget.currentUser.id,
+        );
+        _quickNotesRepository = QuickNotesRepository(
+          widget.apiClient,
+          widget.authRepository,
+          _quickNoteDataSource!,
+        );
       });
       _startCountdownTicker();
       await _maybeShowPermissionPrompt(preferences);
@@ -153,6 +170,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
+    final quickNoteDataSource = _quickNoteDataSource;
     if (_error != null) {
       return Scaffold(
         body: Center(
@@ -176,7 +194,10 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
         ),
       );
     }
-    if (controller == null || controller.isLoading) {
+    if (controller == null ||
+        controller.isLoading ||
+        quickNoteDataSource == null ||
+        _quickNotesRepository == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
@@ -187,7 +208,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
         final pages = [
           _buildTodayView(controller, todayItems),
           _buildInboxView(controller),
-          _buildQuickNotesView(),
+          _buildQuickNotesView(_quickNotesRepository!),
           _buildProfileView(controller),
         ];
         final titles = ['今日', '清单', '闪念', '我的'];
@@ -195,23 +216,28 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
         final fabIcon = _selectedNavIndex == 2
             ? Icons.bolt_rounded
             : Icons.add_alert_rounded;
+        final fab = FloatingActionButton.extended(
+          onPressed: () {
+            if (_selectedNavIndex == 2) {
+              _quickNotesPageKey.currentState?.openTextComposer();
+              return;
+            }
+            _openForm(controller);
+          },
+          icon: Icon(fabIcon),
+          label: Text(fabLabel),
+        );
 
         return Scaffold(
           floatingActionButton: _selectedNavIndex == 3
               ? null
-              : FloatingActionButton.extended(
-                  onPressed: () {
-                    if (_selectedNavIndex == 2) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('闪念创建功能下一步补上')),
-                      );
-                      return;
-                    }
-                    _openForm(controller);
-                  },
-                  icon: Icon(fabIcon),
-                  label: Text(fabLabel),
-                ),
+              : (_selectedNavIndex == 2
+                    ? GestureDetector(
+                        onLongPress: () => _quickNotesPageKey.currentState
+                            ?.openVoiceComposer(),
+                        child: fab,
+                      )
+                    : fab),
           bottomNavigationBar: NavigationBar(
             selectedIndex: _selectedNavIndex,
             onDestinationSelected: (index) {
@@ -275,6 +301,14 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                           (_selectedNavIndex == 2 || _selectedNavIndex == 3)
                           ? null
                           : _countdownLabel(),
+                      customTrailing: _selectedNavIndex == 2
+                          ? _QuickNotesStatusButton(
+                              diagnostics: _quickNotesDiagnostics,
+                              onPressed: _quickNotesPageKey
+                                  .currentState
+                                  ?.refreshDiagnostics,
+                            )
+                          : null,
                     ),
                     const SizedBox(height: 16),
                     Expanded(
@@ -481,15 +515,18 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     );
   }
 
-  Widget _buildQuickNotesView() {
-    return ListView(
-      children: const [
-        Padding(
-          padding: EdgeInsets.only(bottom: 12),
-          child: Text('先快速记下灵感、待办和临时提醒，后续再整理进清单。'),
-        ),
-        _EmptyPanel(title: '闪念功能准备中', subtitle: '下一步可以补成本地快速记录、转任务和批量整理。'),
-      ],
+  Widget _buildQuickNotesView(QuickNotesRepository repository) {
+    return QuickNotesPage(
+      key: _quickNotesPageKey,
+      repository: repository,
+      onDiagnosticsChanged: (diagnostics) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _quickNotesDiagnostics = diagnostics;
+        });
+      },
     );
   }
 
@@ -759,6 +796,7 @@ class _TopBar extends StatelessWidget {
     required this.onRefresh,
     required this.isRefreshing,
     required this.refreshCountdownLabel,
+    this.customTrailing,
   });
 
   final String title;
@@ -767,6 +805,7 @@ class _TopBar extends StatelessWidget {
   final VoidCallback? onRefresh;
   final bool isRefreshing;
   final String? refreshCountdownLabel;
+  final Widget? customTrailing;
 
   @override
   Widget build(BuildContext context) {
@@ -783,7 +822,9 @@ class _TopBar extends StatelessWidget {
             ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
         ),
-        if (onRefresh != null)
+        if (customTrailing != null)
+          customTrailing!
+        else if (onRefresh != null)
           TextButton.icon(
             onPressed: onRefresh,
             style: TextButton.styleFrom(
@@ -817,6 +858,67 @@ class _TopBar extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _QuickNotesStatusButton extends StatelessWidget {
+  const _QuickNotesStatusButton({
+    required this.diagnostics,
+    required this.onPressed,
+  });
+
+  final QuickNotesDiagnostics? diagnostics;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = diagnostics;
+    final isDiagnosing = data?.diagnosing ?? false;
+    final hasMic = data?.microphonePermissionGranted == true;
+    final hasSpeech = data?.speechAvailable == true;
+    final hasInputDevice = (data?.inputDeviceLabels.length ?? 0) > 0;
+    final allHealthy = hasMic && hasSpeech && hasInputDevice;
+    final label = switch (data) {
+      null => '检测',
+      _ when isDiagnosing => '检测中...',
+      _ when allHealthy => '正常',
+      _ => '异常',
+    };
+    final foreground = allHealthy
+        ? const Color(0xFF126A5A)
+        : const Color(0xFFB85C38);
+    final border = allHealthy
+        ? const Color(0xFFDCE6E1)
+        : const Color(0xFFF0C8B9);
+    final icon = isDiagnosing
+        ? const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : Icon(
+            allHealthy ? Icons.mic_rounded : Icons.warning_amber_rounded,
+            size: 16,
+          );
+
+    return TextButton.icon(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        foregroundColor: foreground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(999),
+          side: BorderSide(color: border),
+        ),
+      ),
+      icon: icon,
+      label: Text(
+        label,
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+      ),
     );
   }
 }

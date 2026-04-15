@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:nexdo/src/core/device/device_identity.dart';
 import 'package:nexdo/src/core/network/api_client.dart';
 import 'package:nexdo/src/features/auth/data/auth_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -39,6 +40,7 @@ void main() {
         preferences: preferences,
         apiClient: NexdoApiClient(
           baseUrl: 'https://example.com/api/v1',
+          deviceIdentityProvider: _FakeDeviceIdentityProvider(),
           httpClient: MockClient((request) async {
             capturedRequest = request;
             return http.Response(
@@ -70,6 +72,7 @@ void main() {
         preferences: preferences,
         apiClient: NexdoApiClient(
           baseUrl: 'https://example.com/api/v1',
+          deviceIdentityProvider: _FakeDeviceIdentityProvider(),
           httpClient: MockClient((request) async {
             return http.Response('{}', 200);
           }),
@@ -114,6 +117,7 @@ void main() {
         preferences: preferences,
         apiClient: NexdoApiClient(
           baseUrl: 'https://example.com/api/v1',
+          deviceIdentityProvider: _FakeDeviceIdentityProvider(),
           httpClient: MockClient((request) async {
             return http.Response(
               jsonEncode({'code': 40001, 'message': '当前密码错误'}),
@@ -139,4 +143,17 @@ void main() {
       );
     });
   });
+}
+
+class _FakeDeviceIdentityProvider implements DeviceIdentityProvider {
+  @override
+  Future<DeviceIdentity> ensureIdentity() async {
+    return const DeviceIdentity(
+      deviceId: 'test-device-id',
+      platform: 'testOS',
+      deviceName: 'Test Device',
+      appVersion: '1.0.0',
+      userAgent: 'Nexdo/1.0.0 (testOS; Test Device)',
+    );
+  }
 }

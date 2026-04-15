@@ -59,16 +59,8 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
     _minuteController = TextEditingController();
     _hourFocusNode = FocusNode();
     _minuteFocusNode = FocusNode();
-    _hourFocusNode.addListener(() {
-      if (!_hourFocusNode.hasFocus) {
-        _normalizeHourInput();
-      }
-    });
-    _minuteFocusNode.addListener(() {
-      if (!_minuteFocusNode.hasFocus) {
-        _normalizeMinuteInput();
-      }
-    });
+    _hourFocusNode.addListener(_handleHourFocusChange);
+    _minuteFocusNode.addListener(_handleMinuteFocusChange);
     _selectedDateTime =
         reminder?.dueAt ?? DateTime.now().add(const Duration(hours: 2));
     _hasSpecificTime = reminder?.hasSpecificTime ?? true;
@@ -95,6 +87,37 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
     _hourFocusNode.dispose();
     _minuteFocusNode.dispose();
     super.dispose();
+  }
+
+  void _handleHourFocusChange() {
+    if (_hourFocusNode.hasFocus) {
+      _selectAllTimeField(_hourController);
+      return;
+    }
+    _normalizeHourInput();
+  }
+
+  void _handleMinuteFocusChange() {
+    if (_minuteFocusNode.hasFocus) {
+      _selectAllTimeField(_minuteController);
+      return;
+    }
+    _normalizeMinuteInput();
+  }
+
+  void _selectAllTimeField(TextEditingController controller) {
+    if (!_hasSpecificTime || controller.text.isEmpty) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      controller.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: controller.text.length,
+      );
+    });
   }
 
   @override
@@ -221,55 +244,61 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                                         Row(
                                           children: [
                                             Expanded(
-                                              child: TextFormField(
-                                                controller: _hourController,
-                                                focusNode: _hourFocusNode,
-                                                enabled: _hasSpecificTime,
-                                                keyboardType:
-                                                    TextInputType.number,
-                                                textInputAction:
-                                                    TextInputAction.next,
-                                                inputFormatters: [
-                                                  FilteringTextInputFormatter
-                                                      .digitsOnly,
-                                                  LengthLimitingTextInputFormatter(
-                                                    2,
-                                                  ),
-                                                ],
-                                                onChanged: (value) {
-                                                  if (!_hasSpecificTime) {
-                                                    return;
-                                                  }
-                                                  if (value.length == 2) {
+                                              child: DecoratedBox(
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                child: TextFormField(
+                                                  controller: _hourController,
+                                                  focusNode: _hourFocusNode,
+                                                  enabled: _hasSpecificTime,
+                                                  keyboardType:
+                                                      TextInputType.number,
+                                                  textInputAction:
+                                                      TextInputAction.next,
+                                                  inputFormatters: [
+                                                    FilteringTextInputFormatter
+                                                        .digitsOnly,
+                                                    LengthLimitingTextInputFormatter(
+                                                      2,
+                                                    ),
+                                                  ],
+                                                  onChanged: (value) {
+                                                    if (!_hasSpecificTime) {
+                                                      return;
+                                                    }
+                                                    if (value.length == 2) {
+                                                      _minuteFocusNode
+                                                          .requestFocus();
+                                                    }
+                                                    setState(() {});
+                                                  },
+                                                  onEditingComplete: () {
+                                                    _normalizeHourInput();
                                                     _minuteFocusNode
                                                         .requestFocus();
-                                                  }
-                                                  setState(() {});
-                                                },
-                                                onEditingComplete: () {
-                                                  _normalizeHourInput();
-                                                  _minuteFocusNode
-                                                      .requestFocus();
-                                                },
-                                                decoration: InputDecoration(
-                                                  isDense: true,
-                                                  border: InputBorder.none,
-                                                  hintText: _hasSpecificTime
-                                                      ? '09'
-                                                      : '--',
-                                                  contentPadding:
-                                                      EdgeInsets.zero,
+                                                  },
+                                                  decoration: InputDecoration(
+                                                    isDense: true,
+                                                    border: InputBorder.none,
+                                                    hintText: _hasSpecificTime
+                                                        ? '09'
+                                                        : '--',
+                                                    contentPadding:
+                                                        EdgeInsets.zero,
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .headlineSmall
+                                                      ?.copyWith(
+                                                        fontWeight:
+                                                            FontWeight.w800,
+                                                      ),
+                                                  validator: (_) =>
+                                                      _validateTimeInput(),
                                                 ),
-                                                textAlign: TextAlign.center,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .headlineSmall
-                                                    ?.copyWith(
-                                                      fontWeight:
-                                                          FontWeight.w800,
-                                                    ),
-                                                validator: (_) =>
-                                                    _validateTimeInput(),
                                               ),
                                             ),
                                             const SizedBox(width: 8),
@@ -301,50 +330,59 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                                                   }
                                                   return KeyEventResult.ignored;
                                                 },
-                                                child: TextFormField(
-                                                  controller: _minuteController,
-                                                  enabled: _hasSpecificTime,
-                                                  keyboardType:
-                                                      TextInputType.number,
-                                                  textInputAction:
-                                                      TextInputAction.done,
-                                                  inputFormatters: [
-                                                    FilteringTextInputFormatter
-                                                        .digitsOnly,
-                                                    LengthLimitingTextInputFormatter(
-                                                      2,
-                                                    ),
-                                                  ],
-                                                  onChanged: (_) {
-                                                    if (_hasSpecificTime) {
-                                                      setState(() {});
-                                                    }
-                                                  },
-                                                  onEditingComplete: () {
-                                                    _normalizeMinuteInput();
-                                                    FocusScope.of(
-                                                      context,
-                                                    ).unfocus();
-                                                  },
-                                                  decoration: InputDecoration(
-                                                    isDense: true,
-                                                    border: InputBorder.none,
-                                                    hintText: _hasSpecificTime
-                                                        ? '00'
-                                                        : '--',
-                                                    contentPadding:
-                                                        EdgeInsets.zero,
+                                                child: DecoratedBox(
+                                                  decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
                                                   ),
-                                                  textAlign: TextAlign.center,
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .headlineSmall
-                                                      ?.copyWith(
-                                                        fontWeight:
-                                                            FontWeight.w800,
+                                                  child: TextFormField(
+                                                    controller:
+                                                        _minuteController,
+                                                    enabled: _hasSpecificTime,
+                                                    keyboardType:
+                                                        TextInputType.number,
+                                                    textInputAction:
+                                                        TextInputAction.done,
+                                                    inputFormatters: [
+                                                      FilteringTextInputFormatter
+                                                          .digitsOnly,
+                                                      LengthLimitingTextInputFormatter(
+                                                        2,
                                                       ),
-                                                  validator: (_) =>
-                                                      _validateTimeInput(),
+                                                    ],
+                                                    onChanged: (_) {
+                                                      if (_hasSpecificTime) {
+                                                        setState(() {});
+                                                      }
+                                                    },
+                                                    onEditingComplete: () {
+                                                      _normalizeMinuteInput();
+                                                      FocusScope.of(
+                                                        context,
+                                                      ).unfocus();
+                                                    },
+                                                    decoration: InputDecoration(
+                                                      isDense: true,
+                                                      border: InputBorder.none,
+                                                      hintText: _hasSpecificTime
+                                                          ? '00'
+                                                          : '--',
+                                                      contentPadding:
+                                                          EdgeInsets.zero,
+                                                    ),
+                                                    textAlign: TextAlign.center,
+                                                    style: Theme.of(context)
+                                                        .textTheme
+                                                        .headlineSmall
+                                                        ?.copyWith(
+                                                          fontWeight:
+                                                              FontWeight.w800,
+                                                        ),
+                                                    validator: (_) =>
+                                                        _validateTimeInput(),
+                                                  ),
                                                 ),
                                               ),
                                             ),

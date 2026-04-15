@@ -19,6 +19,13 @@
       },
       "versions": [
         {
+          "version": "1.0.4",
+          "date": "2026-04-15T02:20:59Z",
+          "localizedDescription": "新增用户修改密码功能。",
+          "downloadURL": "https://github.com/kkw-h/Nexdo/releases/download/v1.0.4/Nexdo-AltStore-1.0.4.ipa",
+          "size": 8299042
+        },
+        {
           "version": "1.0.3",
           "date": "2026-04-14T07:51:45Z",
           "localizedDescription": "Nexdo 1.0.3 发布",

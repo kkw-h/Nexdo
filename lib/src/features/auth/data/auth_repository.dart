@@ -108,6 +108,25 @@ class AuthRepository implements AccessTokenProvider {
     }
   }
 
+  Future<void> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    final session = await _ensureValidSession();
+    if (session == null) {
+      throw const AuthException('登录已失效，请重新登录');
+    }
+    await _safeRequest(
+      () => _apiClient.request(
+        method: 'PATCH',
+        path: '/me/password',
+        accessToken: session.accessToken,
+        body: {'old_password': oldPassword, 'new_password': newPassword},
+      ),
+      defaultMessage: '修改密码失败，请稍后再试',
+    );
+  }
+
   @override
   Future<String> requireAccessToken() async {
     final session = await _ensureValidSession();

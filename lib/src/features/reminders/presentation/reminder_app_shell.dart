@@ -10,6 +10,7 @@ import 'package:table_calendar/table_calendar.dart';
 import '../../auth/data/auth_repository.dart'
     show AuthRepository, AuthException;
 import '../../auth/domain/auth_user.dart';
+import '../../auth/presentation/change_password_page.dart';
 import '../../auth/presentation/device_management_page.dart';
 import 'package:nexdo/src/core/network/api_client.dart';
 import '../application/reminder_notification_service.dart';
@@ -258,18 +259,20 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                       onOpenCalendar: () => _openCalendarPage(controller),
                       showCalendarButton:
                           _selectedNavIndex == 0 || _selectedNavIndex == 1,
-                      onRefresh: (_selectedNavIndex == 2 ||
-                              _selectedNavIndex == 3)
+                      onRefresh:
+                          (_selectedNavIndex == 2 || _selectedNavIndex == 3)
                           ? null
-                          : (_refreshing ? null : () => _refreshData(controller)),
+                          : (_refreshing
+                                ? null
+                                : () => _refreshData(controller)),
                       isRefreshing:
                           (_selectedNavIndex == 2 || _selectedNavIndex == 3)
-                              ? false
-                              : _refreshing,
+                          ? false
+                          : _refreshing,
                       refreshCountdownLabel:
                           (_selectedNavIndex == 2 || _selectedNavIndex == 3)
-                              ? null
-                              : _countdownLabel(),
+                          ? null
+                          : _countdownLabel(),
                     ),
                     const SizedBox(height: 16),
                     Expanded(
@@ -509,8 +512,10 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
         ),
         Card(
           child: ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 18,
+              vertical: 12,
+            ),
             leading: const Icon(Icons.bar_chart_rounded),
             title: const Text('查看数据概览'),
             subtitle: const Text('总提醒、待办、逾期等详细统计'),
@@ -521,8 +526,31 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
         const SizedBox(height: 12),
         Card(
           child: ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 18,
+              vertical: 12,
+            ),
+            leading: const Icon(Icons.lock_reset_rounded),
+            title: const Text('修改密码'),
+            subtitle: const Text('更新当前账号登录密码'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) =>
+                      ChangePasswordPage(repository: widget.authRepository),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 18,
+              vertical: 12,
+            ),
             leading: const Icon(Icons.tune_rounded),
             title: const Text('任务清单与设置'),
             subtitle: const Text('管理清单、分组、标签等配置'),
@@ -692,8 +720,9 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final countdownText =
-        refreshCountdownLabel == null ? '刷新' : '刷新 · $refreshCountdownLabel';
+    final countdownText = refreshCountdownLabel == null
+        ? '刷新'
+        : '刷新 · $refreshCountdownLabel';
     return Row(
       children: [
         Expanded(
@@ -724,9 +753,9 @@ class _TopBar extends StatelessWidget {
                 : const Icon(Icons.refresh_rounded, size: 16),
             label: Text(
               countdownText,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
         if (showCalendarButton)
@@ -942,13 +971,13 @@ class _ReminderCard extends StatelessWidget {
     final statusLabel = reminder.isCompleted
         ? '已完成'
         : reminder.isOverdue
-            ? '已逾期'
-            : '进行中';
+        ? '已逾期'
+        : '进行中';
     final statusColor = reminder.isCompleted
         ? const Color(0xFF4B6F5F)
         : reminder.isOverdue
-            ? const Color(0xFFB85C38)
-            : const Color(0xFF126A5A);
+        ? const Color(0xFFB85C38)
+        : const Color(0xFF126A5A);
 
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
@@ -1012,8 +1041,7 @@ class _ReminderCard extends StatelessWidget {
                         ),
                         Checkbox(
                           value: reminder.isCompleted,
-                          onChanged: (value) =>
-                              controller.toggleCompletion(
+                          onChanged: (value) => controller.toggleCompletion(
                             reminder,
                             value ?? false,
                           ),
@@ -1052,8 +1080,8 @@ class _ReminderCard extends StatelessWidget {
                       Text(
                         reminder.note!,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: const Color(0xFF6A7A74),
-                            ),
+                          color: const Color(0xFF6A7A74),
+                        ),
                       ),
                     ],
                   ],
@@ -1089,8 +1117,8 @@ class _DueTimeBadge extends StatelessWidget {
     final baseColor = isOverdue
         ? const Color(0xFFFFE8E0)
         : isCompleted
-            ? const Color(0xFFEEF4F0)
-            : highlightColor.withValues(alpha: 0.15);
+        ? const Color(0xFFEEF4F0)
+        : highlightColor.withValues(alpha: 0.15);
     final borderColor = isOverdue
         ? const Color(0xFFF0B7A3)
         : highlightColor.withValues(alpha: 0.35);
@@ -1109,31 +1137,31 @@ class _DueTimeBadge extends StatelessWidget {
           Text(
             dateLabel,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: const Color(0xFF5F6F68),
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: const Color(0xFF5F6F68)),
           ),
           const SizedBox(height: 4),
           Text(
             timeLabel,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: isOverdue
-                      ? const Color(0xFFB85C38)
-                      : (isCompleted
-                          ? const Color(0xFF7E8A85)
-                          : const Color(0xFF163E36)),
-                ),
+              fontWeight: FontWeight.w800,
+              color: isOverdue
+                  ? const Color(0xFFB85C38)
+                  : (isCompleted
+                        ? const Color(0xFF7E8A85)
+                        : const Color(0xFF163E36)),
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             distanceLabel,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: const Color(0xFF5F6F68),
-                  fontWeight: FontWeight.w600,
-                ),
+              color: const Color(0xFF5F6F68),
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -1172,9 +1200,9 @@ class _InfoChip extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: fg,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: fg,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -1586,8 +1614,9 @@ class _DataOverviewPage extends StatelessWidget {
         final repeatCount = reminders
             .where((item) => item.repeatRule != ReminderRepeatRule.none)
             .length;
-        final notifications =
-            reminders.where((item) => item.notificationEnabled).length;
+        final notifications = reminders
+            .where((item) => item.notificationEnabled)
+            .length;
 
         return Scaffold(
           appBar: AppBar(title: const Text('数据概览')),
@@ -1609,7 +1638,10 @@ class _DataOverviewPage extends StatelessWidget {
                               ),
                             ),
                             Expanded(
-                              child: _MetricMini(label: '待办', value: '$pending'),
+                              child: _MetricMini(
+                                label: '待办',
+                                value: '$pending',
+                              ),
                             ),
                           ],
                         ),
@@ -1620,11 +1652,16 @@ class _DataOverviewPage extends StatelessWidget {
                               child: _MetricMini(label: '今日', value: '$today'),
                             ),
                             Expanded(
-                              child: _MetricMini(label: '逾期', value: '$overdue'),
+                              child: _MetricMini(
+                                label: '逾期',
+                                value: '$overdue',
+                              ),
                             ),
                             Expanded(
-                              child:
-                                  _MetricMini(label: '已完成', value: '$completed'),
+                              child: _MetricMini(
+                                label: '已完成',
+                                value: '$completed',
+                              ),
                             ),
                           ],
                         ),
@@ -1641,9 +1678,8 @@ class _DataOverviewPage extends StatelessWidget {
                       children: [
                         Text(
                           '数据详情',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 14),
                         _InfoRow(
@@ -1702,9 +1738,9 @@ class _WorkspaceManagerPageState extends State<_WorkspaceManagerPage> {
                 children: [
                   Text(
                     '任务清单 / 分组 / 标签',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -1778,9 +1814,10 @@ class _WorkspaceManagerPageState extends State<_WorkspaceManagerPage> {
                     onAdd: () => _promptNameDialog(
                       context: context,
                       title: '新建分组',
-                      onSubmit: (name) =>
-                          widget.controller
-                              .createGroup(name, Icons.folder.codePoint),
+                      onSubmit: (name) => widget.controller.createGroup(
+                        name,
+                        Icons.folder.codePoint,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 14),

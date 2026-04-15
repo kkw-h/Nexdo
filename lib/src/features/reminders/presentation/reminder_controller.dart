@@ -50,25 +50,12 @@ class ReminderController extends ChangeNotifier {
 
   List<ReminderItem> remindersFor(ReminderFilter filter) {
     switch (filter) {
-      case ReminderFilter.today:
-        final todays = _workspace.reminders
-            .where((item) => item.isDueToday)
-            .toList();
-        todays.sort((a, b) {
-          if (a.isCompleted != b.isCompleted) {
-            return a.isCompleted ? 1 : -1;
-          }
-          return a.dueAt.compareTo(b.dueAt);
-        });
-        return todays;
-      case ReminderFilter.upcoming:
-        return _workspace.reminders
-            .where((item) => !item.isCompleted && !item.isDueToday)
-            .toList();
-      case ReminderFilter.completed:
-        return _workspace.reminders.where((item) => item.isCompleted).toList();
       case ReminderFilter.all:
         return _workspace.reminders;
+      case ReminderFilter.pending:
+        return _workspace.reminders.where((item) => !item.isCompleted).toList();
+      case ReminderFilter.completed:
+        return _workspace.reminders.where((item) => item.isCompleted).toList();
     }
   }
 

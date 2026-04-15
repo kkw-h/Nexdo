@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-enum ReminderFilter { today, upcoming, completed, all }
+enum ReminderFilter { all, pending, completed }
 
 enum ReminderRepeatRule { none, daily, weekly, monthly, yearly }
 

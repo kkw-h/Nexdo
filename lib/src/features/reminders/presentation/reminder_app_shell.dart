@@ -41,14 +41,8 @@ enum ReminderSortMode { dueDate, createdAt, title }
 
 class _ReminderAppShellState extends State<ReminderAppShell> {
   static const _permissionPromptKey = 'permission_prompt.shown';
-  static const ReminderList _allReminderList = ReminderList(
-    id: '__all__',
-    name: '全部提醒',
-    colorValue: 0xFF126A5A,
-  );
-
   ReminderController? _controller;
-  ReminderFilter _selectedFilter = ReminderFilter.today;
+  ReminderFilter _selectedFilter = ReminderFilter.all;
   ReminderSortMode _sortMode = ReminderSortMode.dueDate;
   int _selectedNavIndex = 0;
   DateTime _selectedDate = DateTime.now();
@@ -186,11 +180,10 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
-        final filterItems = controller.remindersFor(_selectedFilter);
         final todayItems = controller.remindersForDate(DateTime.now());
         final pages = [
           _buildTodayView(controller, todayItems),
-          _buildInboxView(controller, filterItems),
+          _buildInboxView(controller),
           _buildQuickNotesView(),
           _buildProfileView(controller),
         ];
@@ -265,10 +258,18 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                       onOpenCalendar: () => _openCalendarPage(controller),
                       showCalendarButton:
                           _selectedNavIndex == 0 || _selectedNavIndex == 1,
-                      onRefresh: _refreshing
+                      onRefresh: (_selectedNavIndex == 2 ||
+                              _selectedNavIndex == 3)
                           ? null
-                          : () => _refreshData(controller),
-                      isRefreshing: _refreshing,
+                          : (_refreshing ? null : () => _refreshData(controller)),
+                      isRefreshing:
+                          (_selectedNavIndex == 2 || _selectedNavIndex == 3)
+                              ? false
+                              : _refreshing,
+                      refreshCountdownLabel:
+                          (_selectedNavIndex == 2 || _selectedNavIndex == 3)
+                              ? null
+                              : _countdownLabel(),
                     ),
                     const SizedBox(height: 16),
                     Expanded(
@@ -323,58 +324,11 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     }
   }
 
-  Widget _buildInboxView(
-    ReminderController controller,
-    List<ReminderItem> filterItems,
-  ) {
-    final refreshHint = _buildRefreshCountdownHint(context);
-    final allItems = _sortReminders(filterItems);
-    final listSections = <Widget>[
-      Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: _ListSection(
-          list: _allReminderList,
-          items: allItems,
-          controller: controller,
-          onOpenReminder: (reminder) =>
-              _openForm(controller, reminder: reminder),
-        ),
-      ),
-    ];
-
-    final orderedLists = [...controller.lists]
-      ..sort((a, b) {
-        final compare = a.sortOrder.compareTo(b.sortOrder);
-        if (compare != 0) {
-          return compare;
-        }
-        return a.name.compareTo(b.name);
-      });
-
-    listSections.addAll(
-      orderedLists.map((list) {
-        final listItems = _sortReminders(
-          controller.remindersForList(list.id, _selectedFilter),
-        );
-        if (listItems.isEmpty) {
-          return const SizedBox.shrink();
-        }
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: _ListSection(
-            list: list,
-            items: listItems,
-            controller: controller,
-            onOpenReminder: (reminder) =>
-                _openForm(controller, reminder: reminder),
-          ),
-        );
-      }),
-    );
+  Widget _buildInboxView(ReminderController controller) {
+    final reminders = _sortReminders(controller.remindersFor(_selectedFilter));
 
     return Column(
       children: [
-        refreshHint,
         Row(
           children: [
             Expanded(
@@ -399,7 +353,25 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
           ],
         ),
         const SizedBox(height: 16),
-        Expanded(child: ListView(children: listSections)),
+        Expanded(
+          child: reminders.isEmpty
+              ? const _EmptyPanel(
+                  title: '当前没有提醒',
+                  subtitle: '先创建提醒，列表会按时间自动排列。',
+                )
+              : ListView.separated(
+                  itemCount: reminders.length,
+                  separatorBuilder: (context, _) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final reminder = reminders[index];
+                    return _ReminderCard(
+                      reminder: reminder,
+                      controller: controller,
+                      onTap: () => _openForm(controller, reminder: reminder),
+                    );
+                  },
+                ),
+        ),
       ],
     );
   }
@@ -409,11 +381,9 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     List<ReminderItem> todayItems,
   ) {
     final orderedItems = _sortReminders(todayItems);
-    final refreshHint = _buildRefreshCountdownHint(context);
 
     return ListView(
       children: [
-        refreshHint,
         Row(
           children: [
             Expanded(
@@ -476,12 +446,6 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
   }
 
   Widget _buildProfileView(ReminderController controller) {
-    final reminders = controller.reminders;
-    final completed = reminders.where((item) => item.isCompleted).length;
-    final pending = reminders.length - completed;
-    final overdue = reminders.where((item) => item.isOverdue).length;
-    final today = reminders.where((item) => item.isDueToday).length;
-
     return ListView(
       children: [
         Card(
@@ -544,87 +508,29 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
           ),
         ),
         Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _MetricMini(
-                        label: '全部提醒',
-                        value: '${reminders.length}',
-                      ),
-                    ),
-                    Expanded(
-                      child: _MetricMini(label: '待办', value: '$pending'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _MetricMini(label: '今日', value: '$today'),
-                    ),
-                    Expanded(
-                      child: _MetricMini(label: '逾期', value: '$overdue'),
-                    ),
-                    Expanded(
-                      child: _MetricMini(label: '已完成', value: '$completed'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+          child: ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            leading: const Icon(Icons.bar_chart_rounded),
+            title: const Text('查看数据概览'),
+            subtitle: const Text('总提醒、待办、逾期等详细统计'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => _openDataOverview(controller),
           ),
         ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '数据概览',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                _InfoRow(label: '任务清单', value: '${controller.lists.length}'),
-                _InfoRow(label: '分组', value: '${controller.groups.length}'),
-                _InfoRow(label: '标签', value: '${controller.tags.length}'),
-                _InfoRow(
-                  label: '循环提醒',
-                  value:
-                      '${reminders.where((item) => item.repeatRule != ReminderRepeatRule.none).length}',
-                ),
-                _InfoRow(
-                  label: '开启通知',
-                  value:
-                      '${reminders.where((item) => item.notificationEnabled).length}',
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Card(
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 18,
-              vertical: 8,
-            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
             leading: const Icon(Icons.tune_rounded),
             title: const Text('任务清单与设置'),
-            subtitle: const Text('管理清单、分组、标签等本地配置'),
+            subtitle: const Text('管理清单、分组、标签等配置'),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => _openWorkspaceManager(controller),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Card(
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(
@@ -671,14 +577,19 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     await controller.saveReminder(result.reminder);
   }
 
+  Future<void> _openDataOverview(ReminderController controller) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _DataOverviewPage(controller: controller),
+      ),
+    );
+  }
+
   Future<void> _openWorkspaceManager(ReminderController controller) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (context) {
-        return _WorkspaceManagerSheet(controller: controller);
-      },
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _WorkspaceManagerPage(controller: controller),
+      ),
     );
   }
 
@@ -726,29 +637,16 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) => tick());
   }
 
-  Widget _buildRefreshCountdownHint(BuildContext context) {
+  String? _countdownLabel() {
     final controller = _controller;
     if (controller == null || controller.nextSyncTime == null) {
-      return const SizedBox.shrink();
+      return null;
     }
     final seconds = _refreshCountdown;
-    final label = seconds <= 0 ? '即将自动刷新' : '距自动刷新还有 ${seconds}s';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.refresh_rounded, size: 16, color: Color(0xFF126A5A)),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF126A5A)),
-          ),
-        ],
-      ),
-    );
+    if (seconds <= 0) {
+      return '即将刷新';
+    }
+    return '${seconds}s';
   }
 
   List<ReminderItem> _sortReminders(List<ReminderItem> items) {
@@ -782,6 +680,7 @@ class _TopBar extends StatelessWidget {
     required this.showCalendarButton,
     required this.onRefresh,
     required this.isRefreshing,
+    required this.refreshCountdownLabel,
   });
 
   final String title;
@@ -789,9 +688,12 @@ class _TopBar extends StatelessWidget {
   final bool showCalendarButton;
   final VoidCallback? onRefresh;
   final bool isRefreshing;
+  final String? refreshCountdownLabel;
 
   @override
   Widget build(BuildContext context) {
+    final countdownText =
+        refreshCountdownLabel == null ? '刷新' : '刷新 · $refreshCountdownLabel';
     return Row(
       children: [
         Expanded(
@@ -802,21 +704,38 @@ class _TopBar extends StatelessWidget {
             ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
         ),
-        IconButton(
-          tooltip: '刷新',
-          onPressed: onRefresh,
-          icon: isRefreshing
-              ? const SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.refresh_rounded),
-        ),
+        if (onRefresh != null)
+          TextButton.icon(
+            onPressed: onRefresh,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              foregroundColor: const Color(0xFF126A5A),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+                side: const BorderSide(color: Color(0xFFDCE6E1)),
+              ),
+            ),
+            icon: isRefreshing
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh_rounded, size: 16),
+            label: Text(
+              countdownText,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
         if (showCalendarButton)
-          IconButton.filledTonal(
-            onPressed: onOpenCalendar,
-            icon: const Icon(Icons.calendar_month_rounded),
+          Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: IconButton.filledTonal(
+              onPressed: onOpenCalendar,
+              icon: const Icon(Icons.calendar_month_rounded),
+            ),
           ),
       ],
     );
@@ -972,10 +891,9 @@ class _FilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final labels = {
-      ReminderFilter.today: '今天',
-      ReminderFilter.upcoming: '接下来',
-      ReminderFilter.completed: '已完成',
       ReminderFilter.all: '全部',
+      ReminderFilter.pending: '未完成',
+      ReminderFilter.completed: '已完成',
     };
 
     return SingleChildScrollView(
@@ -1000,75 +918,6 @@ class _FilterBar extends StatelessWidget {
   }
 }
 
-class _ListSection extends StatelessWidget {
-  const _ListSection({
-    required this.list,
-    required this.items,
-    required this.controller,
-    required this.onOpenReminder,
-  });
-
-  final ReminderList list;
-  final List<ReminderItem> items;
-  final ReminderController controller;
-  final ValueChanged<ReminderItem> onOpenReminder;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Color(list.colorValue);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  list.name,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const Spacer(),
-                Text('${items.length} 条'),
-              ],
-            ),
-            const SizedBox(height: 14),
-            if (items.isEmpty)
-              Text(
-                '当前没有提醒，稍后再来或先新建一条。',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF60716B),
-                ),
-              )
-            else
-              ...items.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _ReminderCard(
-                    reminder: item,
-                    controller: controller,
-                    onTap: () => onOpenReminder(item),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _ReminderCard extends StatelessWidget {
   const _ReminderCard({
     required this.reminder,
@@ -1082,40 +931,63 @@ class _ReminderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dueFormatter = DateFormat('M月d日 HH:mm', 'zh_CN');
+    final list = controller.findList(reminder.listId);
     final group = controller.findGroup(reminder.groupId);
-    final tags = controller.findTags(reminder.tagIds);
-    final isOverdue = reminder.isOverdue;
-    final statusColor = reminder.isCompleted
-        ? const Color(0xFF59706A)
-        : isOverdue
-        ? const Color(0xFFB85C38)
-        : const Color(0xFF126A5A);
+    final dateFormatter = DateFormat('M月d日', 'zh_CN');
+    final timeFormatter = DateFormat('HH:mm', 'zh_CN');
+    final dateLabel = reminder.isDueToday
+        ? '今天'
+        : dateFormatter.format(reminder.dueAt);
+    final timeLabel = timeFormatter.format(reminder.dueAt);
     final statusLabel = reminder.isCompleted
         ? '已完成'
-        : isOverdue
-        ? '已逾期'
-        : reminder.isDueToday
-        ? '今天'
-        : '待处理';
+        : reminder.isOverdue
+            ? '已逾期'
+            : '进行中';
+    final statusColor = reminder.isCompleted
+        ? const Color(0xFF4B6F5F)
+        : reminder.isOverdue
+            ? const Color(0xFFB85C38)
+            : const Color(0xFF126A5A);
 
-    return Material(
-      color: isOverdue ? const Color(0xFFFFF4EF) : const Color(0xFFF7FAF8),
-      borderRadius: BorderRadius.circular(20),
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final dueDate = DateTime(
+      reminder.dueAt.year,
+      reminder.dueAt.month,
+      reminder.dueAt.day,
+    );
+    final dayDiff = dueDate.difference(todayDate).inDays;
+    String distanceLabel;
+    if (reminder.isCompleted) {
+      distanceLabel = '已完成';
+    } else if (dayDiff > 0) {
+      distanceLabel = '剩余$dayDiff天';
+    } else if (dayDiff == 0) {
+      distanceLabel = '剩余0天';
+    } else {
+      distanceLabel = '超期${dayDiff.abs()}天';
+    }
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(8),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Checkbox(
-                value: reminder.isCompleted,
-                onChanged: (value) =>
-                    controller.toggleCompletion(reminder, value ?? false),
+              _DueTimeBadge(
+                dateLabel: dateLabel,
+                timeLabel: timeLabel,
+                highlightColor: statusColor,
+                isCompleted: reminder.isCompleted,
+                isOverdue: reminder.isOverdue,
+                distanceLabel: distanceLabel,
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1132,21 +1004,19 @@ class _ReminderCard extends StatelessWidget {
                                   decoration: reminder.isCompleted
                                       ? TextDecoration.lineThrough
                                       : null,
+                                  color: reminder.isCompleted
+                                      ? const Color(0xFF7E8A85)
+                                      : null,
                                 ),
                           ),
                         ),
-                        PopupMenuButton<String>(
-                          onSelected: (value) {
-                            if (value == 'delete') {
-                              controller.removeReminder(reminder.id);
-                            }
-                          },
-                          itemBuilder: (_) => const [
-                            PopupMenuItem<String>(
-                              value: 'delete',
-                              child: Text('删除'),
-                            ),
-                          ],
+                        Checkbox(
+                          value: reminder.isCompleted,
+                          onChanged: (value) =>
+                              controller.toggleCompletion(
+                            reminder,
+                            value ?? false,
+                          ),
                         ),
                       ],
                     ),
@@ -1155,56 +1025,35 @@ class _ReminderCard extends StatelessWidget {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        if (isOverdue)
-                          const _Pill(
-                            label: '超时未完成',
-                            color: Color(0xFFFBE0D6),
-                            foreground: Color(0xFFB85C38),
-                          ),
-                        _Pill(
-                          label: dueFormatter.format(reminder.dueAt),
-                          color: const Color(0xFFE8F2EE),
-                          foreground: const Color(0xFF31534A),
-                        ),
-                        _Pill(
-                          label: statusLabel,
-                          color: statusColor.withAlpha(36),
-                          foreground: statusColor,
+                        _InfoChip(
+                          icon: Icons.list_alt_rounded,
+                          label: list?.name ?? '未分配',
                         ),
                         if (group != null)
-                          _Pill(
+                          _InfoChip(
+                            icon: Icons.folder_open_rounded,
                             label: group.name,
-                            color: const Color(0xFFEDEFF6),
-                            foreground: const Color(0xFF425266),
                           ),
-                        if (reminder.notificationEnabled)
-                          const _Pill(
-                            label: '通知',
-                            color: Color(0xFFFFF1D8),
-                            foreground: Color(0xFF936317),
-                          ),
-                        if (reminder.repeatRule != ReminderRepeatRule.none)
-                          _Pill(
-                            label: reminder.repeatRule.label,
-                            color: const Color(0xFFE8EEF9),
-                            foreground: const Color(0xFF3B5C93),
-                          ),
-                        ...tags.map(
-                          (tag) => _Pill(
-                            label: '#${tag.name}',
-                            color: Color(tag.colorValue).withAlpha(30),
-                            foreground: Color(tag.colorValue),
-                          ),
+                        _InfoChip(
+                          icon: Icons.flag_rounded,
+                          label: statusLabel,
+                          foreground: statusColor,
+                          background: statusColor.withValues(alpha: 0.12),
                         ),
+                        if (reminder.repeatRule != ReminderRepeatRule.none)
+                          _InfoChip(
+                            icon: Icons.repeat_rounded,
+                            label: reminder.repeatRule.label,
+                          ),
                       ],
                     ),
                     if (reminder.note != null && reminder.note!.isNotEmpty) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       Text(
                         reminder.note!,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: const Color(0xFF60716B),
-                        ),
+                              color: const Color(0xFF6A7A74),
+                            ),
                       ),
                     ],
                   ],
@@ -1213,6 +1062,121 @@ class _ReminderCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _DueTimeBadge extends StatelessWidget {
+  const _DueTimeBadge({
+    required this.dateLabel,
+    required this.timeLabel,
+    required this.highlightColor,
+    required this.isCompleted,
+    required this.isOverdue,
+    required this.distanceLabel,
+  });
+
+  final String dateLabel;
+  final String timeLabel;
+  final Color highlightColor;
+  final bool isCompleted;
+  final bool isOverdue;
+  final String distanceLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseColor = isOverdue
+        ? const Color(0xFFFFE8E0)
+        : isCompleted
+            ? const Color(0xFFEEF4F0)
+            : highlightColor.withValues(alpha: 0.15);
+    final borderColor = isOverdue
+        ? const Color(0xFFF0B7A3)
+        : highlightColor.withValues(alpha: 0.35);
+
+    return Container(
+      width: 78,
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      decoration: BoxDecoration(
+        color: baseColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            dateLabel,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF5F6F68),
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            timeLabel,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: isOverdue
+                      ? const Color(0xFFB85C38)
+                      : (isCompleted
+                          ? const Color(0xFF7E8A85)
+                          : const Color(0xFF163E36)),
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            distanceLabel,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: const Color(0xFF5F6F68),
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({
+    required this.icon,
+    required this.label,
+    this.background,
+    this.foreground,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color? background;
+  final Color? foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = background ?? const Color(0xFFF2F5F4);
+    final fg = foreground ?? const Color(0xFF4B5C57);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: fg),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: fg,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ],
       ),
     );
   }
@@ -1604,152 +1568,257 @@ class _EmptyPanel extends StatelessWidget {
   }
 }
 
-class _WorkspaceManagerSheet extends StatefulWidget {
-  const _WorkspaceManagerSheet({required this.controller});
+class _DataOverviewPage extends StatelessWidget {
+  const _DataOverviewPage({required this.controller});
 
   final ReminderController controller;
 
   @override
-  State<_WorkspaceManagerSheet> createState() => _WorkspaceManagerSheetState();
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final reminders = controller.reminders;
+        final completed = reminders.where((item) => item.isCompleted).length;
+        final pending = reminders.length - completed;
+        final overdue = reminders.where((item) => item.isOverdue).length;
+        final today = reminders.where((item) => item.isDueToday).length;
+        final repeatCount = reminders
+            .where((item) => item.repeatRule != ReminderRepeatRule.none)
+            .length;
+        final notifications =
+            reminders.where((item) => item.notificationEnabled).length;
+
+        return Scaffold(
+          appBar: AppBar(title: const Text('数据概览')),
+          body: SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _MetricMini(
+                                label: '全部提醒',
+                                value: '${reminders.length}',
+                              ),
+                            ),
+                            Expanded(
+                              child: _MetricMini(label: '待办', value: '$pending'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _MetricMini(label: '今日', value: '$today'),
+                            ),
+                            Expanded(
+                              child: _MetricMini(label: '逾期', value: '$overdue'),
+                            ),
+                            Expanded(
+                              child:
+                                  _MetricMini(label: '已完成', value: '$completed'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '数据详情',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                        const SizedBox(height: 14),
+                        _InfoRow(
+                          label: '任务清单',
+                          value: '${controller.lists.length}',
+                        ),
+                        _InfoRow(
+                          label: '分组',
+                          value: '${controller.groups.length}',
+                        ),
+                        _InfoRow(
+                          label: '标签',
+                          value: '${controller.tags.length}',
+                        ),
+                        _InfoRow(label: '循环提醒', value: '$repeatCount'),
+                        _InfoRow(label: '开启通知', value: '$notifications'),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
-class _WorkspaceManagerSheetState extends State<_WorkspaceManagerSheet> {
+class _WorkspaceManagerPage extends StatefulWidget {
+  const _WorkspaceManagerPage({required this.controller});
+
+  final ReminderController controller;
+
+  @override
+  State<_WorkspaceManagerPage> createState() => _WorkspaceManagerPageState();
+}
+
+class _WorkspaceManagerPageState extends State<_WorkspaceManagerPage> {
   bool _listsOrdering = false;
   bool _groupsOrdering = false;
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-        child: AnimatedBuilder(
-          animation: widget.controller,
-          builder: (context, _) {
-            final lists = _sortedLists();
-            final groups = _sortedGroups();
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '任务清单 / 分组 / 标签',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '先用本地数据维护组织结构，后续接 API 时可以整体复用。',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 18),
-                _ManagerSection(
-                  title: '任务清单',
-                  items: lists
-                      .map(
-                        (item) => _ManagerItem(
-                          id: item.id,
-                          label: item.name,
-                          onEdit: () => _promptNameDialog(
-                            context: context,
-                            title: '重命名任务清单',
-                            initialValue: item.name,
-                            onSubmit: (name) =>
-                                widget.controller.renameList(item, name),
-                          ),
-                          onDelete: () => _confirmDelete(
-                            context: context,
-                            message:
-                                '删除清单后归属其中的提醒将暂时移至“全部提醒”视图并等待下一次同步处理，你确定要继续吗？',
-                            onConfirm: () =>
-                                widget.controller.deleteList(item.id),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  emptyHint: '还没有清单，点击右上角加号新建。',
-                  reorderable: true,
-                  isProcessing: _listsOrdering,
-                  onReorder: _onListReorder,
-                  onAdd: () => _promptNameDialog(
-                    context: context,
-                    title: '新建任务清单',
-                    onSubmit: (name) =>
-                        widget.controller.createList(name, 0xFF126A5A),
+    return Scaffold(
+      appBar: AppBar(title: const Text('任务清单与设置')),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+          child: AnimatedBuilder(
+            animation: widget.controller,
+            builder: (context, _) {
+              final lists = _sortedLists();
+              final groups = _sortedGroups();
+              return ListView(
+                children: [
+                  Text(
+                    '任务清单 / 分组 / 标签',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
                   ),
-                ),
-                const SizedBox(height: 14),
-                _ManagerSection(
-                  title: '分组',
-                  items: groups
-                      .map(
-                        (item) => _ManagerItem(
-                          id: item.id,
-                          label: item.name,
-                          onEdit: () => _promptNameDialog(
-                            context: context,
-                            title: '重命名分组',
-                            initialValue: item.name,
-                            onSubmit: (name) =>
-                                widget.controller.renameGroup(item, name),
+                  const SizedBox(height: 6),
+                  Text(
+                    '先用本地数据维护组织结构，后续接 API 时可以整体复用。',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 18),
+                  _ManagerSection(
+                    title: '任务清单',
+                    items: lists
+                        .map(
+                          (item) => _ManagerItem(
+                            id: item.id,
+                            label: item.name,
+                            onEdit: () => _promptNameDialog(
+                              context: context,
+                              title: '重命名任务清单',
+                              initialValue: item.name,
+                              onSubmit: (name) =>
+                                  widget.controller.renameList(item, name),
+                            ),
+                            onDelete: () => _confirmDelete(
+                              context: context,
+                              message:
+                                  '删除清单后归属其中的提醒将暂时移至“全部提醒”视图并等待下一次同步处理，你确定要继续吗？',
+                              onConfirm: () =>
+                                  widget.controller.deleteList(item.id),
+                            ),
                           ),
-                          onDelete: () => _confirmDelete(
-                            context: context,
-                            message: '删除分组仅影响展示，不会移除提醒。',
-                            onConfirm: () =>
-                                widget.controller.deleteGroup(item.id),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  emptyHint: '可以把“高优先级”“例行事项”拆成不同分组。',
-                  reorderable: true,
-                  isProcessing: _groupsOrdering,
-                  onReorder: _onGroupReorder,
-                  onAdd: () => _promptNameDialog(
-                    context: context,
-                    title: '新建分组',
-                    onSubmit: (name) => widget.controller.createGroup(
-                      name,
-                      Icons.folder.codePoint,
+                        )
+                        .toList(),
+                    emptyHint: '还没有清单，点击右上角加号新建。',
+                    reorderable: true,
+                    isProcessing: _listsOrdering,
+                    onReorder: _onListReorder,
+                    onAdd: () => _promptNameDialog(
+                      context: context,
+                      title: '新建任务清单',
+                      onSubmit: (name) =>
+                          widget.controller.createList(name, 0xFF126A5A),
                     ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                _ManagerSection(
-                  title: '标签',
-                  items: widget.controller.tags
-                      .map(
-                        (item) => _ManagerItem(
-                          id: item.id,
-                          label: '#${item.name}',
-                          onEdit: () => _promptNameDialog(
-                            context: context,
-                            title: '重命名标签',
-                            initialValue: item.name,
-                            onSubmit: (name) =>
-                                widget.controller.renameTag(item, name),
+                  const SizedBox(height: 14),
+                  _ManagerSection(
+                    title: '分组',
+                    items: groups
+                        .map(
+                          (item) => _ManagerItem(
+                            id: item.id,
+                            label: item.name,
+                            onEdit: () => _promptNameDialog(
+                              context: context,
+                              title: '重命名分组',
+                              initialValue: item.name,
+                              onSubmit: (name) =>
+                                  widget.controller.renameGroup(item, name),
+                            ),
+                            onDelete: () => _confirmDelete(
+                              context: context,
+                              message: '删除分组仅影响展示，不会移除提醒。',
+                              onConfirm: () =>
+                                  widget.controller.deleteGroup(item.id),
+                            ),
                           ),
-                          onDelete: () => _confirmDelete(
-                            context: context,
-                            message: '确认删除标签 ${item.name} 吗？',
-                            onConfirm: () =>
-                                widget.controller.deleteTag(item.id),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  emptyHint: '给提醒加上 #深度工作、#家庭 等标签以便筛选。',
-                  onAdd: () => _promptNameDialog(
-                    context: context,
-                    title: '新建标签',
-                    onSubmit: (name) =>
-                        widget.controller.createTag(name, 0xFF6B5FB3),
+                        )
+                        .toList(),
+                    emptyHint: '可以把“高优先级”“例行事项”拆成不同分组。',
+                    reorderable: true,
+                    isProcessing: _groupsOrdering,
+                    onReorder: _onGroupReorder,
+                    onAdd: () => _promptNameDialog(
+                      context: context,
+                      title: '新建分组',
+                      onSubmit: (name) =>
+                          widget.controller
+                              .createGroup(name, Icons.folder.codePoint),
+                    ),
                   ),
-                ),
-              ],
-            );
-          },
+                  const SizedBox(height: 14),
+                  _ManagerSection(
+                    title: '标签',
+                    items: widget.controller.tags
+                        .map(
+                          (item) => _ManagerItem(
+                            id: item.id,
+                            label: '#${item.name}',
+                            onEdit: () => _promptNameDialog(
+                              context: context,
+                              title: '重命名标签',
+                              initialValue: item.name,
+                              onSubmit: (name) =>
+                                  widget.controller.renameTag(item, name),
+                            ),
+                            onDelete: () => _confirmDelete(
+                              context: context,
+                              message: '确认删除标签 ${item.name} 吗？',
+                              onConfirm: () =>
+                                  widget.controller.deleteTag(item.id),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    emptyHint: '给提醒加上 #深度工作、#家庭 等标签以便筛选。',
+                    onAdd: () => _promptNameDialog(
+                      context: context,
+                      title: '新建标签',
+                      onSubmit: (name) =>
+                          widget.controller.createTag(name, 0xFF6B5FB3),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

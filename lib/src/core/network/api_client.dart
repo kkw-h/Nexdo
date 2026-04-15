@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../device/device_identity.dart';
 import 'api_exception.dart';
 
 class NexdoApiClient {
@@ -12,13 +13,17 @@ class NexdoApiClient {
     String? baseUrl,
     http.Client? httpClient,
     Duration timeout = const Duration(seconds: 20),
+    DeviceIdentityProvider? deviceIdentityProvider,
   }) : baseUrl = baseUrl ?? _resolveDefaultBaseUrl(),
        _httpClient = httpClient ?? http.Client(),
-       _timeout = timeout;
+       _timeout = timeout,
+       _deviceIdentityProvider =
+           deviceIdentityProvider ?? DeviceIdentityProvider.instance;
 
   final http.Client _httpClient;
   final Duration _timeout;
   final String baseUrl;
+  final DeviceIdentityProvider _deviceIdentityProvider;
 
   Future<dynamic> request({
     required String method,
@@ -29,8 +34,12 @@ class NexdoApiClient {
     String? accessToken,
   }) async {
     final uri = _buildUri(path, queryParameters);
+    final identity = await _deviceIdentityProvider.ensureIdentity();
+
     final requestHeaders = <String, String>{
       'Accept': 'application/json',
+      'User-Agent': identity.userAgent,
+      'X-Nexdo-Device-ID': identity.deviceId,
       if (body != null) 'Content-Type': 'application/json; charset=utf-8',
     };
     if (accessToken != null && accessToken.isNotEmpty) {

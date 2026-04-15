@@ -1,4 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+
+import '../../../core/device/device_identity.dart';
 import '../data/auth_repository.dart';
 import '../domain/auth_device.dart';
 
@@ -29,8 +33,17 @@ class _DeviceManagementPageState extends State<DeviceManagementPage> {
     });
 
     try {
+      final identity = await DeviceIdentityProvider.instance.ensureIdentity();
       final data = await widget.repository.getDevices();
-      final devices = data.map((e) => AuthDevice.fromMap(e)).toList();
+      final devices = data.map((e) {
+        final mapDeviceId = e['device_id']?.toString();
+        final inferredCurrent =
+            mapDeviceId != null && mapDeviceId == identity.deviceId;
+        return AuthDevice.fromMap(
+          e,
+          isCurrent: inferredCurrent,
+        );
+      }).toList();
       // Sort devices: current first, then by lastActiveAt descending
       devices.sort((a, b) {
         if (a.isCurrent && !b.isCurrent) return -1;
@@ -136,19 +149,14 @@ class _DeviceManagementPageState extends State<DeviceManagementPage> {
           final device = _devices[index];
           return ListTile(
             leading: Icon(
-              device.userAgent.toLowerCase().contains('mobile') ||
-                      device.userAgent.toLowerCase().contains('android') ||
-                      device.userAgent.toLowerCase().contains('ios') ||
-                      device.userAgent.toLowerCase().contains('dart')
-                  ? Icons.smartphone
-                  : Icons.computer,
+              _iconForDevice(device.platform, device.userAgent),
               color: device.isCurrent ? Theme.of(context).primaryColor : null,
             ),
             title: Row(
               children: [
                 Expanded(
                   child: Text(
-                    device.userAgent,
+                    device.deviceName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -178,7 +186,14 @@ class _DeviceManagementPageState extends State<DeviceManagementPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 4),
-                Text('IP: ${device.ipAddress}'),
+                Text('${device.platform} · ${device.userAgent}'),
+                Text(
+                  'IP (${_ipVersion(device.ipAddress)}): ${device.ipAddress}',
+                ),
+                Text(
+                  '设备标识: ${device.deviceFingerprint ?? '未知'}',
+                  overflow: TextOverflow.ellipsis,
+                ),
                 Text('最近活跃: ${_formatDate(device.lastActiveAt)}'),
               ],
             ),
@@ -192,6 +207,44 @@ class _DeviceManagementPageState extends State<DeviceManagementPage> {
         },
       ),
     );
+  }
+
+  IconData _iconForDevice(String platform, String agent) {
+    final value = platform.toLowerCase();
+    final normalizedAgent = agent.toLowerCase();
+    if (value.contains('ios') || value.contains('iphone') || normalizedAgent.contains('iphone')) {
+      return Icons.phone_iphone;
+    }
+    if (value.contains('android') || normalizedAgent.contains('android')) {
+      return Icons.android;
+    }
+    if (value.contains('mac')) {
+      return Icons.laptop_mac;
+    }
+    if (value.contains('windows')) {
+      return Icons.laptop_windows;
+    }
+    if (value.contains('linux')) {
+      return Icons.laptop;
+    }
+    return Icons.devices_other;
+  }
+
+  String _ipVersion(String ip) {
+    final parsed = InternetAddress.tryParse(ip);
+    if (parsed == null) {
+      return '未知';
+    }
+    switch (parsed.type) {
+      case InternetAddressType.IPv4:
+        return 'IPv4';
+      case InternetAddressType.IPv6:
+        return 'IPv6';
+      case InternetAddressType.unix:
+        return 'Unix';
+      default:
+        return '未知';
+    }
   }
 
   String _formatDate(DateTime date) {

@@ -8,9 +8,10 @@ import '../domain/auth_user.dart';
 import 'auth_session.dart';
 
 class AuthException implements Exception {
-  const AuthException(this.message);
+  const AuthException(this.message, {this.shouldLogout = false});
 
   final String message;
+  final bool shouldLogout;
 }
 
 abstract class AccessTokenProvider {
@@ -42,7 +43,7 @@ class AuthRepository implements AccessTokenProvider {
       await _saveSession(updated);
       return remote;
     } on ApiException catch (error) {
-      if (error.statusCode == 401) {
+      if (error.isUnauthorized) {
         await _clearSession();
         return null;
       }
@@ -114,7 +115,7 @@ class AuthRepository implements AccessTokenProvider {
   }) async {
     final session = await _ensureValidSession();
     if (session == null) {
-      throw const AuthException('登录已失效，请重新登录');
+      throw const AuthException('登录已失效，请重新登录', shouldLogout: true);
     }
     await _safeRequest(
       () => _apiClient.request(
@@ -131,7 +132,7 @@ class AuthRepository implements AccessTokenProvider {
   Future<String> requireAccessToken() async {
     final session = await _ensureValidSession();
     if (session == null) {
-      throw const AuthException('登录已失效，请重新登录');
+      throw const AuthException('登录已失效，请重新登录', shouldLogout: true);
     }
     return session.accessToken;
   }
@@ -168,7 +169,7 @@ class AuthRepository implements AccessTokenProvider {
       rethrow;
     } catch (error) {
       await _clearSession();
-      if (error is ApiException && error.statusCode == 401) {
+      if (error is ApiException && error.isUnauthorized) {
         return null;
       }
       rethrow;
@@ -183,6 +184,7 @@ class AuthRepository implements AccessTokenProvider {
         body: {'refresh_token': session.refreshToken},
       ),
       defaultMessage: '登录状态已失效，请重新登录',
+      logoutOnUnauthorized: true,
     );
     return _mapPayloadToSession(data, fallbackUser: session.user);
   }
@@ -202,7 +204,7 @@ class AuthRepository implements AccessTokenProvider {
       await _saveSession(refreshed);
       return refreshed.user;
     } on ApiException catch (error) {
-      if (error.statusCode == 401) {
+      if (error.isUnauthorized) {
         await _clearSession();
         return null;
       }
@@ -260,7 +262,7 @@ class AuthRepository implements AccessTokenProvider {
   Future<List<Map<String, dynamic>>> getDevices() async {
     final session = await _ensureValidSession();
     if (session == null) {
-      throw const AuthException('登录已失效，请重新登录');
+      throw const AuthException('登录已失效，请重新登录', shouldLogout: true);
     }
     final data = await _safeRequest(
       () => _apiClient.request(
@@ -279,7 +281,7 @@ class AuthRepository implements AccessTokenProvider {
   Future<void> logoutDevice(String deviceId) async {
     final session = await _ensureValidSession();
     if (session == null) {
-      throw const AuthException('登录已失效，请重新登录');
+      throw const AuthException('登录已失效，请重新登录', shouldLogout: true);
     }
     await _safeRequest(
       () => _apiClient.request(
@@ -294,11 +296,15 @@ class AuthRepository implements AccessTokenProvider {
   Future<dynamic> _safeRequest(
     Future<dynamic> Function() task, {
     required String defaultMessage,
+    bool logoutOnUnauthorized = false,
   }) async {
     try {
       return await task();
     } on ApiException catch (error) {
-      throw AuthException(error.message ?? defaultMessage);
+      throw AuthException(
+        error.message ?? defaultMessage,
+        shouldLogout: logoutOnUnauthorized && error.isUnauthorized,
+      );
     }
   }
 

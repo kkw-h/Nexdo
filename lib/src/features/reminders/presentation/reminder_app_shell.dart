@@ -104,7 +104,9 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
       setState(() {
         _error = error.message;
       });
-      await widget.onLogout();
+      if (error.shouldLogout) {
+        await widget.onLogout();
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -310,7 +312,9 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.message)));
-      await widget.onLogout();
+      if (error.shouldLogout) {
+        await widget.onLogout();
+      }
     } catch (_) {
       if (!mounted) {
         return;
@@ -325,6 +329,43 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
         });
       }
     }
+  }
+
+  Future<void> _handleReminderAction(
+    Future<void> Function() action, {
+    String fallbackMessage = '操作失败，请稍后再试',
+  }) async {
+    try {
+      await action();
+    } on AuthException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+      if (error.shouldLogout) {
+        await widget.onLogout();
+      }
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(fallbackMessage)));
+    }
+  }
+
+  Future<void> _toggleCompletion(
+    ReminderController controller,
+    ReminderItem reminder,
+    bool isCompleted,
+  ) {
+    return _handleReminderAction(
+      () => controller.toggleCompletion(reminder, isCompleted),
+      fallbackMessage: '更新提醒状态失败，请稍后再试',
+    );
   }
 
   Widget _buildInboxView(ReminderController controller) {
@@ -371,6 +412,8 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                       reminder: reminder,
                       controller: controller,
                       onTap: () => _openForm(controller, reminder: reminder),
+                      onToggleCompletion: (value) =>
+                          _toggleCompletion(controller, reminder, value),
                     );
                   },
                 ),
@@ -429,6 +472,8 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                 reminder: item,
                 controller: controller,
                 onOpenReminder: () => _openForm(controller, reminder: item),
+                onToggleCompletion: (value) =>
+                    _toggleCompletion(controller, item, value),
               ),
             ),
           ),
@@ -602,7 +647,10 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
       return;
     }
 
-    await controller.saveReminder(result.reminder);
+    await _handleReminderAction(
+      () => controller.saveReminder(result.reminder),
+      fallbackMessage: '保存提醒失败，请稍后再试',
+    );
   }
 
   Future<void> _openDataOverview(ReminderController controller) async {
@@ -630,6 +678,8 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
           initialFocusedDate: _focusedDate,
           onOpenReminder: (reminder) =>
               _openForm(controller, reminder: reminder),
+          onToggleCompletion: (reminder, value) =>
+              _toggleCompletion(controller, reminder, value),
         ),
       ),
     );
@@ -952,11 +1002,13 @@ class _ReminderCard extends StatelessWidget {
     required this.reminder,
     required this.controller,
     required this.onTap,
+    required this.onToggleCompletion,
   });
 
   final ReminderItem reminder;
   final ReminderController controller;
   final VoidCallback onTap;
+  final ValueChanged<bool> onToggleCompletion;
 
   @override
   Widget build(BuildContext context) {
@@ -1042,10 +1094,8 @@ class _ReminderCard extends StatelessWidget {
                         ),
                         Checkbox(
                           value: reminder.isCompleted,
-                          onChanged: (value) => controller.toggleCompletion(
-                            reminder,
-                            value ?? false,
-                          ),
+                          onChanged: (value) =>
+                              onToggleCompletion(value ?? false),
                         ),
                       ],
                     ),
@@ -1216,11 +1266,13 @@ class _TimelineTile extends StatelessWidget {
     required this.reminder,
     required this.controller,
     required this.onOpenReminder,
+    required this.onToggleCompletion,
   });
 
   final ReminderItem reminder;
   final ReminderController controller;
   final VoidCallback onOpenReminder;
+  final ValueChanged<bool> onToggleCompletion;
 
   @override
   Widget build(BuildContext context) {
@@ -1332,8 +1384,7 @@ class _TimelineTile extends StatelessWidget {
                 ),
                 Checkbox(
                   value: reminder.isCompleted,
-                  onChanged: (value) =>
-                      controller.toggleCompletion(reminder, value ?? false),
+                  onChanged: (value) => onToggleCompletion(value ?? false),
                 ),
               ],
             ),
@@ -1349,11 +1400,13 @@ class _TodayReminderRow extends StatelessWidget {
     required this.reminder,
     required this.controller,
     required this.onOpenReminder,
+    required this.onToggleCompletion,
   });
 
   final ReminderItem reminder;
   final ReminderController controller;
   final VoidCallback onOpenReminder;
+  final ValueChanged<bool> onToggleCompletion;
 
   @override
   Widget build(BuildContext context) {
@@ -1459,8 +1512,7 @@ class _TodayReminderRow extends StatelessWidget {
               ),
               Checkbox(
                 value: reminder.isCompleted,
-                onChanged: (value) =>
-                    controller.toggleCompletion(reminder, value ?? false),
+                onChanged: (value) => onToggleCompletion(value ?? false),
               ),
             ],
           ),
@@ -2023,12 +2075,15 @@ class _CalendarPage extends StatefulWidget {
     required this.initialSelectedDate,
     required this.initialFocusedDate,
     required this.onOpenReminder,
+    required this.onToggleCompletion,
   });
 
   final ReminderController controller;
   final DateTime initialSelectedDate;
   final DateTime initialFocusedDate;
   final void Function(ReminderItem reminder) onOpenReminder;
+  final Future<void> Function(ReminderItem reminder, bool isCompleted)
+  onToggleCompletion;
 
   @override
   State<_CalendarPage> createState() => _CalendarPageState();
@@ -2187,6 +2242,8 @@ class _CalendarPageState extends State<_CalendarPage> {
                       reminder: item,
                       controller: widget.controller,
                       onOpenReminder: () => widget.onOpenReminder(item),
+                      onToggleCompletion: (value) =>
+                          widget.onToggleCompletion(item, value),
                     ),
                   ),
                 ),

@@ -19,6 +19,13 @@
       },
       "versions": [
         {
+          "version": "1.0.6",
+          "date": "2026-04-15T08:43:33Z",
+          "localizedDescription": "优化接口错误处理：400/40000 等业务错误不再误退出登录，并统一未授权状态判断。",
+          "downloadURL": "https://github.com/kkw-h/Nexdo/releases/download/v1.0.6/Nexdo-AltStore-1.0.6.ipa",
+          "size": 8213588
+        },
+        {
           "version": "1.0.5",
           "date": "2026-04-15T06:28:54Z",
           "localizedDescription": "优化提醒时间编辑与备注交互，支持仅日期提醒。",

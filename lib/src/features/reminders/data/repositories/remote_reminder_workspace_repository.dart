@@ -277,12 +277,12 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
     try {
       return await send(token);
     } on ApiException catch (error) {
-      if (error.statusCode == 401) {
+      if (error.isUnauthorized) {
         final refreshedToken = await _tokenProvider.refreshAccessToken();
         if (refreshedToken != null && refreshedToken.isNotEmpty) {
           return await send(refreshedToken);
         }
-        throw const AuthException('登录已失效，请重新登录');
+        throw const AuthException('登录已失效，请重新登录', shouldLogout: true);
       }
       throw AuthException(error.message ?? '接口调用失败');
     }

@@ -19,6 +19,13 @@
       },
       "versions": [
         {
+          "version": "1.0.12",
+          "date": "2026-04-16T12:54:23Z",
+          "localizedDescription": "新增提醒循环的工作日与休息日支持。",
+          "downloadURL": "https://github.com/kkw-h/Nexdo/releases/download/v1.0.12/Nexdo-AltStore-1.0.12.ipa",
+          "size": 33263269
+        },
+        {
           "version": "1.0.11",
           "date": "2026-04-16T09:05:24Z",
           "localizedDescription": "P0 阶段收尾：统一加载/错误/刷新体验，优化闪念播放抽屉与 MiSans 排版。",

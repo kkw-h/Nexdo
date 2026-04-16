@@ -119,6 +119,9 @@ class ReminderNotificationService {
         return DateTimeComponents.dayOfMonthAndTime;
       case ReminderRepeatRule.yearly:
         return DateTimeComponents.dateAndTime;
+      case ReminderRepeatRule.workday:
+      case ReminderRepeatRule.restday:
+        return null;
     }
   }
 }

@@ -43,4 +43,26 @@ void main() {
     expect(decoded.reminders.single.notificationEnabled, isTrue);
     expect(decoded.reminders.single.repeatRule, ReminderRepeatRule.weekly);
   });
+
+  test('repeat rule supports workday and restday aliases', () {
+    final friday = DateTime(2026, 4, 17, 19, 0);
+    final saturday = DateTime(2026, 4, 18, 19, 0);
+
+    expect(
+      ReminderRepeatRuleX.fromStorage('workday'),
+      ReminderRepeatRule.workday,
+    );
+    expect(
+      ReminderRepeatRuleX.fromStorage('weekend'),
+      ReminderRepeatRule.restday,
+    );
+    expect(
+      ReminderRepeatRule.workday.nextDate(friday),
+      DateTime(2026, 4, 20, 19, 0),
+    );
+    expect(
+      ReminderRepeatRule.restday.nextDate(saturday),
+      DateTime(2026, 4, 19, 19, 0),
+    );
+  });
 }

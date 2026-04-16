@@ -36,7 +36,15 @@ class ReminderQuery {
   }
 }
 
-enum ReminderRepeatRule { none, daily, weekly, monthly, yearly }
+enum ReminderRepeatRule {
+  none,
+  daily,
+  weekly,
+  monthly,
+  yearly,
+  workday,
+  restday,
+}
 
 extension ReminderRepeatRuleX on ReminderRepeatRule {
   String get label {
@@ -51,6 +59,10 @@ extension ReminderRepeatRuleX on ReminderRepeatRule {
         return '每月';
       case ReminderRepeatRule.yearly:
         return '每年';
+      case ReminderRepeatRule.workday:
+        return '工作日';
+      case ReminderRepeatRule.restday:
+        return '休息日';
     }
   }
 
@@ -78,16 +90,57 @@ extension ReminderRepeatRuleX on ReminderRepeatRule {
           dateTime.hour,
           dateTime.minute,
         );
+      case ReminderRepeatRule.workday:
+        return _nextMatchingDate(dateTime, (value) {
+          return value.weekday >= DateTime.monday &&
+              value.weekday <= DateTime.friday;
+        });
+      case ReminderRepeatRule.restday:
+        return _nextMatchingDate(dateTime, (value) {
+          return value.weekday == DateTime.saturday ||
+              value.weekday == DateTime.sunday;
+        });
     }
   }
 
-  String get storageValue => name;
+  String get storageValue {
+    switch (this) {
+      case ReminderRepeatRule.restday:
+        return 'restday';
+      default:
+        return name;
+    }
+  }
 
   static ReminderRepeatRule fromStorage(String? value) {
+    final normalized = value?.trim().toLowerCase();
+    switch (normalized) {
+      case 'workday':
+      case 'work_day':
+      case 'weekday':
+      case 'business_day':
+        return ReminderRepeatRule.workday;
+      case 'restday':
+      case 'rest_day':
+      case 'weekend':
+      case 'holiday':
+        return ReminderRepeatRule.restday;
+    }
     return ReminderRepeatRule.values.firstWhere(
-      (item) => item.name == value,
+      (item) => item.name == normalized,
       orElse: () => ReminderRepeatRule.none,
     );
+  }
+
+  DateTime _nextMatchingDate(
+    DateTime dateTime,
+    bool Function(DateTime value) matcher,
+  ) {
+    var candidate = dateTime.add(const Duration(days: 1));
+    while (!matcher(candidate)) {
+      candidate = candidate.add(const Duration(days: 1));
+    }
+    return candidate;
   }
 }
 

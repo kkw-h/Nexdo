@@ -66,7 +66,7 @@ RELEASE_TAG=${RELEASE_TAG:-"v$APP_VERSION"}
 
 OUTPUT_DIR="$ROOT_DIR/build/altstore"
 PAYLOAD_DIR="$OUTPUT_DIR/Payload"
-APP_PATH="$ROOT_DIR/build/ios/iphoneos/Runner.app"
+APP_PATH="$ROOT_DIR/build/ios/Release-iphoneos/Runner.app"
 IPA_NAME="Nexdo-AltStore-${APP_VERSION}.ipa"
 IPA_PATH="$OUTPUT_DIR/$IPA_NAME"
 

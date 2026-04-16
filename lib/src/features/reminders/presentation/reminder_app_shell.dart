@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -402,6 +403,50 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     );
   }
 
+  Future<void> _deleteReminder(
+    ReminderController controller,
+    ReminderItem reminder,
+  ) async {
+    await _confirmReminderDelete(
+      message: '确认删除提醒“${reminder.title}”吗？',
+      onConfirm: () => _handleReminderAction(
+        () => controller.removeReminder(reminder.id),
+        fallbackMessage: '删除提醒失败，请稍后再试',
+      ),
+    );
+  }
+
+  Future<void> _confirmReminderDelete({
+    required String message,
+    required Future<void> Function() onConfirm,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('确认删除'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFB85C38),
+              ),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('删除'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed == true) {
+      await onConfirm();
+    }
+  }
+
   Widget _buildInboxView(ReminderController controller) {
     final reminders = _sortReminders(controller.remindersFor(_selectedFilter));
 
@@ -442,12 +487,16 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                   separatorBuilder: (context, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final reminder = reminders[index];
-                    return _ReminderCard(
-                      reminder: reminder,
-                      controller: controller,
-                      onTap: () => _openForm(controller, reminder: reminder),
-                      onToggleCompletion: (value) =>
-                          _toggleCompletion(controller, reminder, value),
+                    return _ReminderSwipeAction(
+                      reminderId: reminder.id,
+                      onDelete: () => _deleteReminder(controller, reminder),
+                      child: _ReminderCard(
+                        reminder: reminder,
+                        controller: controller,
+                        onTap: () => _openForm(controller, reminder: reminder),
+                        onToggleCompletion: (value) =>
+                            _toggleCompletion(controller, reminder, value),
+                      ),
                     );
                   },
                 ),
@@ -502,12 +551,16 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
           ...orderedItems.map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: _TodayReminderRow(
-                reminder: item,
-                controller: controller,
-                onOpenReminder: () => _openForm(controller, reminder: item),
-                onToggleCompletion: (value) =>
-                    _toggleCompletion(controller, item, value),
+              child: _ReminderSwipeAction(
+                reminderId: item.id,
+                onDelete: () => _deleteReminder(controller, item),
+                child: _TodayReminderRow(
+                  reminder: item,
+                  controller: controller,
+                  onOpenReminder: () => _openForm(controller, reminder: item),
+                  onToggleCompletion: (value) =>
+                      _toggleCompletion(controller, item, value),
+                ),
               ),
             ),
           ),
@@ -715,6 +768,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
           initialFocusedDate: _focusedDate,
           onOpenReminder: (reminder) =>
               _openForm(controller, reminder: reminder),
+          onDeleteReminder: (reminder) => _deleteReminder(controller, reminder),
           onToggleCompletion: (reminder, value) =>
               _toggleCompletion(controller, reminder, value),
         ),
@@ -1359,6 +1413,65 @@ class _InfoChip extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ReminderSwipeAction extends StatelessWidget {
+  const _ReminderSwipeAction({
+    required this.reminderId,
+    required this.onDelete,
+    required this.child,
+  });
+
+  final String reminderId;
+  final Future<void> Function() onDelete;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    const actionPaneBackground = Color(0xFFF4FBF7);
+    return Slidable(
+      key: ValueKey('reminder-swipe-$reminderId'),
+      closeOnScroll: true,
+      endActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        extentRatio: 0.24,
+        openThreshold: 0.2,
+        closeThreshold: 0.1,
+        dragDismissible: false,
+        children: [
+          CustomSlidableAction(
+            onPressed: (_) async {
+              await onDelete();
+            },
+            backgroundColor: actionPaneBackground,
+            padding: EdgeInsets.zero,
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFB85C38),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              alignment: Alignment.center,
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.delete_outline_rounded, color: Colors.white),
+                  SizedBox(height: 4),
+                  Text(
+                    '删除',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      child: child,
     );
   }
 }
@@ -2177,6 +2290,7 @@ class _CalendarPage extends StatefulWidget {
     required this.initialSelectedDate,
     required this.initialFocusedDate,
     required this.onOpenReminder,
+    required this.onDeleteReminder,
     required this.onToggleCompletion,
   });
 
@@ -2184,6 +2298,7 @@ class _CalendarPage extends StatefulWidget {
   final DateTime initialSelectedDate;
   final DateTime initialFocusedDate;
   final void Function(ReminderItem reminder) onOpenReminder;
+  final Future<void> Function(ReminderItem reminder) onDeleteReminder;
   final Future<void> Function(ReminderItem reminder, bool isCompleted)
   onToggleCompletion;
 
@@ -2340,12 +2455,16 @@ class _CalendarPageState extends State<_CalendarPage> {
                 ...selectedItems.map(
                   (item) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: _TimelineTile(
-                      reminder: item,
-                      controller: widget.controller,
-                      onOpenReminder: () => widget.onOpenReminder(item),
-                      onToggleCompletion: (value) =>
-                          widget.onToggleCompletion(item, value),
+                    child: _ReminderSwipeAction(
+                      reminderId: item.id,
+                      onDelete: () => widget.onDeleteReminder(item),
+                      child: _TimelineTile(
+                        reminder: item,
+                        controller: widget.controller,
+                        onOpenReminder: () => widget.onOpenReminder(item),
+                        onToggleCompletion: (value) =>
+                            widget.onToggleCompletion(item, value),
+                      ),
                     ),
                   ),
                 ),

@@ -19,6 +19,13 @@
       },
       "versions": [
         {
+          "version": "1.0.9",
+          "date": "2026-04-16T03:32:06Z",
+          "localizedDescription": "新增提醒左滑删除交互，点击删除按钮后再进行确认。",
+          "downloadURL": "https://github.com/kkw-h/Nexdo/releases/download/v1.0.9/Nexdo-AltStore-1.0.9.ipa",
+          "size": 11210300
+        },
+        {
           "version": "1.0.8",
           "date": "2026-04-16T02:35:42Z",
           "localizedDescription": "修复 iOS 提醒时间输入时完成按钮位置异常。",

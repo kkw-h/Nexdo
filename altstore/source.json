@@ -19,6 +19,13 @@
       },
       "versions": [
         {
+          "version": "1.0.11",
+          "date": "2026-04-16T09:05:24Z",
+          "localizedDescription": "P0 阶段收尾：统一加载/错误/刷新体验，优化闪念播放抽屉与 MiSans 排版。",
+          "downloadURL": "https://github.com/kkw-h/Nexdo/releases/download/v1.0.11/Nexdo-AltStore-1.0.11.ipa",
+          "size": 33257674
+        },
+        {
           "version": "1.0.10",
           "date": "2026-04-16T06:47:45Z",
           "localizedDescription": "Nexdo 1.0.10 发布",

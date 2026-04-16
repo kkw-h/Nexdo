@@ -127,6 +127,14 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
     }
   }
 
+  void _focusMinuteField() {
+    if (!_hasSpecificTime) {
+      return;
+    }
+    _minuteFocusNode.requestFocus();
+    _selectAllTimeField(_minuteController);
+  }
+
   @override
   Widget build(BuildContext context) {
     final lists = _sortedLists();
@@ -251,13 +259,13 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                                               return;
                                             }
                                             if (value.length == 2) {
-                                              _minuteFocusNode.requestFocus();
+                                              _focusMinuteField();
                                             }
                                             setState(() {});
                                           },
                                           onEditingComplete: () {
                                             _normalizeHourInput();
-                                            _minuteFocusNode.requestFocus();
+                                            _focusMinuteField();
                                           },
                                           decoration: InputDecoration(
                                             isDense: true,
@@ -291,65 +299,49 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
-                                      child: Focus(
-                                        focusNode: _minuteFocusNode,
-                                        onKeyEvent: (node, event) {
-                                          if (event is KeyDownEvent &&
-                                              event.logicalKey ==
-                                                  LogicalKeyboardKey
-                                                      .backspace &&
-                                              _minuteController.text.isEmpty) {
-                                            _hourFocusNode.requestFocus();
-                                            return KeyEventResult.handled;
-                                          }
-                                          return KeyEventResult.ignored;
-                                        },
-                                        child: DecoratedBox(
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
                                           ),
-                                          child: TextFormField(
-                                            controller: _minuteController,
-                                            enabled: _hasSpecificTime,
-                                            keyboardType: TextInputType.number,
-                                            textInputAction:
-                                                TextInputAction.done,
-                                            inputFormatters: [
-                                              FilteringTextInputFormatter
-                                                  .digitsOnly,
-                                              LengthLimitingTextInputFormatter(
-                                                2,
+                                        ),
+                                        child: TextFormField(
+                                          controller: _minuteController,
+                                          focusNode: _minuteFocusNode,
+                                          enabled: _hasSpecificTime,
+                                          keyboardType: TextInputType.number,
+                                          textInputAction: TextInputAction.done,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                            LengthLimitingTextInputFormatter(2),
+                                          ],
+                                          onChanged: (_) {
+                                            if (_hasSpecificTime) {
+                                              setState(() {});
+                                            }
+                                          },
+                                          onEditingComplete: () {
+                                            _normalizeMinuteInput();
+                                            FocusScope.of(context).unfocus();
+                                          },
+                                          decoration: InputDecoration(
+                                            isDense: true,
+                                            border: InputBorder.none,
+                                            hintText: _hasSpecificTime
+                                                ? '00'
+                                                : '--',
+                                            contentPadding: EdgeInsets.zero,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .headlineSmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w800,
                                               ),
-                                            ],
-                                            onChanged: (_) {
-                                              if (_hasSpecificTime) {
-                                                setState(() {});
-                                              }
-                                            },
-                                            onEditingComplete: () {
-                                              _normalizeMinuteInput();
-                                              FocusScope.of(context).unfocus();
-                                            },
-                                            decoration: InputDecoration(
-                                              isDense: true,
-                                              border: InputBorder.none,
-                                              hintText: _hasSpecificTime
-                                                  ? '00'
-                                                  : '--',
-                                              contentPadding: EdgeInsets.zero,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .headlineSmall
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w800,
-                                                ),
-                                            validator: (_) =>
-                                                _validateTimeInput(),
-                                          ),
+                                          validator: (_) =>
+                                              _validateTimeInput(),
                                         ),
                                       ),
                                     ),

@@ -120,6 +120,13 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
     });
   }
 
+  void _dismissKeyboard() {
+    final currentFocus = FocusScope.of(context);
+    if (!currentFocus.hasPrimaryFocus) {
+      currentFocus.unfocus();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final lists = _sortedLists();
@@ -132,526 +139,504 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
         ? '${dateFormatter.format(_selectedDateTime)} ${_formattedTimeText()}'
         : '${dateFormatter.format(_selectedDateTime)} · 全天';
 
-    return Scaffold(
-      appBar: AppBar(title: Text(_isEditing ? '编辑提醒' : '新建提醒')),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Padding(
-              padding: const EdgeInsets.all(20),
-              child: Form(
-                key: _formKey,
-                child: ListView(
+    final formContent = Padding(
+      padding: const EdgeInsets.all(20),
+      child: Form(
+        key: _formKey,
+        child: ListView(
+          children: [
+            TextFormField(
+              controller: _titleController,
+              decoration: const InputDecoration(
+                labelText: '提醒标题',
+                hintText: '比如：下午 3 点提交周报',
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return '请输入提醒标题';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextFormField(
-                      controller: _titleController,
-                      decoration: const InputDecoration(
-                        labelText: '提醒标题',
-                        hintText: '比如：下午 3 点提交周报',
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return '请输入提醒标题';
-                        }
-                        return null;
-                      },
+                    Row(
+                      children: [
+                        const Icon(Icons.schedule_rounded),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('提醒时间'),
+                              const SizedBox(height: 4),
+                              Text(
+                                summaryLabel,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: const Color(0xFF60716B)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _DateTimeEditorCard(
+                            label: '日期',
+                            icon: Icons.calendar_month_rounded,
+                            onTap: _pickDateOnly,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(Icons.schedule_rounded),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text('提醒时间'),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        summaryLabel,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium
-                                            ?.copyWith(
-                                              color: const Color(0xFF60716B),
-                                            ),
+                                Text(
+                                  dateOnlyFormatter.format(_selectedDateTime),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.titleLarge
+                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  weekdayFormatter.format(_selectedDateTime),
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: const Color(0xFF60716B),
                                       ),
-                                    ],
-                                  ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 16),
-                            Row(
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _DateTimeEditorCard(
+                            label: '时间',
+                            icon: Icons.access_time_rounded,
+                            actionLabel: _hasSpecificTime ? '清除' : '设置',
+                            onActionPressed: _toggleTimeEditing,
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: _DateTimeEditorCard(
-                                    label: '日期',
-                                    icon: Icons.calendar_month_rounded,
-                                    onTap: _pickDateOnly,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          dateOnlyFormatter.format(
-                                            _selectedDateTime,
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
                                           ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        child: TextFormField(
+                                          controller: _hourController,
+                                          focusNode: _hourFocusNode,
+                                          enabled: _hasSpecificTime,
+                                          keyboardType: TextInputType.number,
+                                          textInputAction: TextInputAction.next,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                            LengthLimitingTextInputFormatter(2),
+                                          ],
+                                          onChanged: (value) {
+                                            if (!_hasSpecificTime) {
+                                              return;
+                                            }
+                                            if (value.length == 2) {
+                                              _minuteFocusNode.requestFocus();
+                                            }
+                                            setState(() {});
+                                          },
+                                          onEditingComplete: () {
+                                            _normalizeHourInput();
+                                            _minuteFocusNode.requestFocus();
+                                          },
+                                          decoration: InputDecoration(
+                                            isDense: true,
+                                            border: InputBorder.none,
+                                            hintText: _hasSpecificTime
+                                                ? '09'
+                                                : '--',
+                                            contentPadding: EdgeInsets.zero,
+                                          ),
+                                          textAlign: TextAlign.center,
                                           style: Theme.of(context)
                                               .textTheme
-                                              .titleLarge
+                                              .headlineSmall
                                               ?.copyWith(
                                                 fontWeight: FontWeight.w800,
                                               ),
+                                          validator: (_) =>
+                                              _validateTimeInput(),
                                         ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          weekdayFormatter.format(
-                                            _selectedDateTime,
-                                          ),
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                color: const Color(0xFF60716B),
-                                              ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _DateTimeEditorCard(
-                                    label: '时间',
-                                    icon: Icons.access_time_rounded,
-                                    actionLabel: _hasSpecificTime ? '清除' : '设置',
-                                    onActionPressed: _toggleTimeEditing,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: DecoratedBox(
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                child: TextFormField(
-                                                  controller: _hourController,
-                                                  focusNode: _hourFocusNode,
-                                                  enabled: _hasSpecificTime,
-                                                  keyboardType:
-                                                      TextInputType.number,
-                                                  textInputAction:
-                                                      TextInputAction.next,
-                                                  inputFormatters: [
-                                                    FilteringTextInputFormatter
-                                                        .digitsOnly,
-                                                    LengthLimitingTextInputFormatter(
-                                                      2,
-                                                    ),
-                                                  ],
-                                                  onChanged: (value) {
-                                                    if (!_hasSpecificTime) {
-                                                      return;
-                                                    }
-                                                    if (value.length == 2) {
-                                                      _minuteFocusNode
-                                                          .requestFocus();
-                                                    }
-                                                    setState(() {});
-                                                  },
-                                                  onEditingComplete: () {
-                                                    _normalizeHourInput();
-                                                    _minuteFocusNode
-                                                        .requestFocus();
-                                                  },
-                                                  decoration: InputDecoration(
-                                                    isDense: true,
-                                                    border: InputBorder.none,
-                                                    hintText: _hasSpecificTime
-                                                        ? '09'
-                                                        : '--',
-                                                    contentPadding:
-                                                        EdgeInsets.zero,
-                                                  ),
-                                                  textAlign: TextAlign.center,
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .headlineSmall
-                                                      ?.copyWith(
-                                                        fontWeight:
-                                                            FontWeight.w800,
-                                                      ),
-                                                  validator: (_) =>
-                                                      _validateTimeInput(),
-                                                ),
-                                              ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      ':',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Focus(
+                                        focusNode: _minuteFocusNode,
+                                        onKeyEvent: (node, event) {
+                                          if (event is KeyDownEvent &&
+                                              event.logicalKey ==
+                                                  LogicalKeyboardKey
+                                                      .backspace &&
+                                              _minuteController.text.isEmpty) {
+                                            _hourFocusNode.requestFocus();
+                                            return KeyEventResult.handled;
+                                          }
+                                          return KeyEventResult.ignored;
+                                        },
+                                        child: DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
                                             ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              ':',
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .headlineSmall
-                                                  ?.copyWith(
-                                                    fontWeight: FontWeight.w800,
-                                                  ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Focus(
-                                                focusNode: _minuteFocusNode,
-                                                onKeyEvent: (node, event) {
-                                                  if (event is KeyDownEvent &&
-                                                      event.logicalKey ==
-                                                          LogicalKeyboardKey
-                                                              .backspace &&
-                                                      _minuteController
-                                                          .text
-                                                          .isEmpty) {
-                                                    _hourFocusNode
-                                                        .requestFocus();
-                                                    return KeyEventResult
-                                                        .handled;
-                                                  }
-                                                  return KeyEventResult.ignored;
-                                                },
-                                                child: DecoratedBox(
-                                                  decoration: BoxDecoration(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          8,
-                                                        ),
-                                                  ),
-                                                  child: TextFormField(
-                                                    controller:
-                                                        _minuteController,
-                                                    enabled: _hasSpecificTime,
-                                                    keyboardType:
-                                                        TextInputType.number,
-                                                    textInputAction:
-                                                        TextInputAction.done,
-                                                    inputFormatters: [
-                                                      FilteringTextInputFormatter
-                                                          .digitsOnly,
-                                                      LengthLimitingTextInputFormatter(
-                                                        2,
-                                                      ),
-                                                    ],
-                                                    onChanged: (_) {
-                                                      if (_hasSpecificTime) {
-                                                        setState(() {});
-                                                      }
-                                                    },
-                                                    onEditingComplete: () {
-                                                      _normalizeMinuteInput();
-                                                      FocusScope.of(
-                                                        context,
-                                                      ).unfocus();
-                                                    },
-                                                    decoration: InputDecoration(
-                                                      isDense: true,
-                                                      border: InputBorder.none,
-                                                      hintText: _hasSpecificTime
-                                                          ? '00'
-                                                          : '--',
-                                                      contentPadding:
-                                                          EdgeInsets.zero,
-                                                    ),
-                                                    textAlign: TextAlign.center,
-                                                    style: Theme.of(context)
-                                                        .textTheme
-                                                        .headlineSmall
-                                                        ?.copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w800,
-                                                        ),
-                                                    validator: (_) =>
-                                                        _validateTimeInput(),
-                                                  ),
-                                                ),
+                                          ),
+                                          child: TextFormField(
+                                            controller: _minuteController,
+                                            enabled: _hasSpecificTime,
+                                            keyboardType: TextInputType.number,
+                                            textInputAction:
+                                                TextInputAction.done,
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter
+                                                  .digitsOnly,
+                                              LengthLimitingTextInputFormatter(
+                                                2,
                                               ),
+                                            ],
+                                            onChanged: (_) {
+                                              if (_hasSpecificTime) {
+                                                setState(() {});
+                                              }
+                                            },
+                                            onEditingComplete: () {
+                                              _normalizeMinuteInput();
+                                              FocusScope.of(context).unfocus();
+                                            },
+                                            decoration: InputDecoration(
+                                              isDense: true,
+                                              border: InputBorder.none,
+                                              hintText: _hasSpecificTime
+                                                  ? '00'
+                                                  : '--',
+                                              contentPadding: EdgeInsets.zero,
                                             ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          _hasSpecificTime
-                                              ? '左侧输入小时，右侧输入分钟'
-                                              : '留空表示仅日期，无具体时间',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                color: const Color(0xFF60716B),
-                                              ),
-                                        ),
-                                        if (timeErrorText != null) ...[
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            timeErrorText,
+                                            textAlign: TextAlign.center,
                                             style: Theme.of(context)
                                                 .textTheme
-                                                .bodySmall
+                                                .headlineSmall
                                                 ?.copyWith(
-                                                  color: Theme.of(
-                                                    context,
-                                                  ).colorScheme.error,
+                                                  fontWeight: FontWeight.w800,
                                                 ),
+                                            validator: (_) =>
+                                                _validateTimeInput(),
                                           ),
-                                        ],
-                                      ],
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: [
-                                ..._quickOptions().map(
-                                  (option) => _QuickActionChip(
-                                    label: option.label,
-                                    onTap: () {
-                                      setState(() {
-                                        _setSelectedDateTime(
-                                          option.value,
-                                          hasSpecificTime: true,
-                                        );
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (!_noteEnabled)
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () {
-                            setState(() {
-                              _noteEnabled = true;
-                            });
-                          },
-                          borderRadius: BorderRadius.circular(18),
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF3F7F5),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(
-                                color: const Color(0xFFCAD7D1),
-                              ),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 18,
-                              vertical: 16,
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 42,
-                                  height: 42,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: const Icon(Icons.note_add_outlined),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '添加备注',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                            ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  _hasSpecificTime
+                                      ? '左侧输入小时，右侧输入分钟'
+                                      : '留空表示仅日期，无具体时间',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: const Color(0xFF60716B),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '补充说明、上下文或执行步骤',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium
-                                            ?.copyWith(
-                                              color: const Color(0xFF60716B),
-                                            ),
-                                      ),
-                                    ],
-                                  ),
                                 ),
-                                const SizedBox(width: 12),
-                                const Icon(Icons.chevron_right_rounded),
+                                if (timeErrorText != null) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    timeErrorText,
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.error,
+                                        ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
                         ),
-                      ),
-                    if (_noteEnabled) ...[
-                      Row(
-                        children: [
-                          Text(
-                            '备注',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const Spacer(),
-                          TextButton(
-                            onPressed: () {
-                              setState(() {
-                                _noteEnabled = false;
-                              });
-                            },
-                            child: const Text('收起'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _noteController,
-                        decoration: const InputDecoration(
-                          hintText: '补充说明、上下文或执行步骤',
-                        ),
-                        minLines: 3,
-                        maxLines: 5,
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    _OptionSection(
-                      title: '任务清单',
-                      child: Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: lists.map((item) {
-                          return _SelectableChip(
-                            label: item.name,
-                            selected: _selectedListId == item.id,
-                            onTap: () {
-                              setState(() {
-                                _selectedListId = item.id;
-                              });
-                            },
-                          );
-                        }).toList(),
-                      ),
+                      ],
                     ),
                     const SizedBox(height: 16),
-                    _OptionSection(
-                      title: '分组',
-                      child: Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: groups.map((item) {
-                          return _SelectableChip(
-                            label: item.name,
-                            selected: _selectedGroupId == item.id,
-                            onTap: () {
-                              setState(() {
-                                _selectedGroupId = item.id;
-                              });
-                            },
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _OptionSection(
-                      title: '循环提醒',
-                      child: Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: ReminderRepeatRule.values.map((item) {
-                          return _SelectableChip(
-                            label: item.label,
-                            selected: _repeatRule == item,
-                            onTap: () {
-                              setState(() {
-                                _repeatRule = item;
-                              });
-                            },
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      '标签',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
-                      children: widget.availableTags.map((tag) {
-                        final selected = _selectedTagIds.contains(tag.id);
-                        return FilterChip(
-                          label: Text(tag.name),
-                          selected: selected,
-                          onSelected: (value) {
-                            setState(() {
-                              if (value) {
-                                _selectedTagIds.add(tag.id);
-                              } else {
-                                _selectedTagIds.remove(tag.id);
-                              }
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 18),
-                    SwitchListTile.adaptive(
-                      value: _notificationEnabled,
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('开启本地通知'),
-                      subtitle: Text(
-                        _hasSpecificTime ? '到点后通过系统通知提醒' : '仅日期提醒不设置到点通知',
-                      ),
-                      onChanged: _hasSpecificTime
-                          ? (value) {
+                      children: [
+                        ..._quickOptions().map(
+                          (option) => _QuickActionChip(
+                            label: option.label,
+                            onTap: () {
                               setState(() {
-                                _notificationEnabled = value;
+                                _setSelectedDateTime(
+                                  option.value,
+                                  hasSpecificTime: true,
+                                );
                               });
-                            }
-                          : null,
-                    ),
-                    const SizedBox(height: 20),
-                    FilledButton(
-                      onPressed: _submit,
-                      child: Text(_isEditing ? '保存修改' : '创建提醒'),
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-            );
-          },
+            ),
+            const SizedBox(height: 16),
+            if (!_noteEnabled)
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _noteEnabled = true;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(18),
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F7F5),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFCAD7D1)),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 16,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(Icons.note_add_outlined),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '添加备注',
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '补充说明、上下文或执行步骤',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: const Color(0xFF60716B)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Icon(Icons.chevron_right_rounded),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            if (_noteEnabled) ...[
+              Row(
+                children: [
+                  Text('备注', style: Theme.of(context).textTheme.titleMedium),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _noteEnabled = false;
+                      });
+                    },
+                    child: const Text('收起'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _noteController,
+                decoration: const InputDecoration(hintText: '补充说明、上下文或执行步骤'),
+                minLines: 3,
+                maxLines: 5,
+              ),
+              const SizedBox(height: 16),
+            ],
+            _OptionSection(
+              title: '任务清单',
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: lists.map((item) {
+                  return _SelectableChip(
+                    label: item.name,
+                    selected: _selectedListId == item.id,
+                    onTap: () {
+                      setState(() {
+                        _selectedListId = item.id;
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _OptionSection(
+              title: '分组',
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: groups.map((item) {
+                  return _SelectableChip(
+                    label: item.name,
+                    selected: _selectedGroupId == item.id,
+                    onTap: () {
+                      setState(() {
+                        _selectedGroupId = item.id;
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _OptionSection(
+              title: '循环提醒',
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: ReminderRepeatRule.values.map((item) {
+                  return _SelectableChip(
+                    label: item.label,
+                    selected: _repeatRule == item,
+                    onTap: () {
+                      setState(() {
+                        _repeatRule = item;
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              '标签',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: widget.availableTags.map((tag) {
+                final selected = _selectedTagIds.contains(tag.id);
+                return FilterChip(
+                  label: Text(tag.name),
+                  selected: selected,
+                  onSelected: (value) {
+                    setState(() {
+                      if (value) {
+                        _selectedTagIds.add(tag.id);
+                      } else {
+                        _selectedTagIds.remove(tag.id);
+                      }
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 18),
+            SwitchListTile.adaptive(
+              value: _notificationEnabled,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('开启本地通知'),
+              subtitle: Text(_hasSpecificTime ? '到点后通过系统通知提醒' : '仅日期提醒不设置到点通知'),
+              onChanged: _hasSpecificTime
+                  ? (value) {
+                      setState(() {
+                        _notificationEnabled = value;
+                      });
+                    }
+                  : null,
+            ),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: _submit,
+              child: Text(_isEditing ? '保存修改' : '创建提醒'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final formBody = GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: _dismissKeyboard,
+      child: formContent,
+    );
+    final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
+    final showKeyboardToolbar =
+        Theme.of(context).platform == TargetPlatform.iOS &&
+        viewInsetsBottom > 0 &&
+        (_hourFocusNode.hasFocus || _minuteFocusNode.hasFocus);
+
+    return Scaffold(
+      appBar: AppBar(title: Text(_isEditing ? '编辑提醒' : '新建提醒')),
+      body: SafeArea(
+        child: Stack(
+          children: [
+            formBody,
+            if (showKeyboardToolbar)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: viewInsetsBottom,
+                child: _KeyboardAccessoryBar(
+                  onNext: _hourFocusNode.hasFocus
+                      ? () {
+                          _normalizeHourInput();
+                          _minuteFocusNode.requestFocus();
+                        }
+                      : null,
+                  onDone: () {
+                    if (_minuteFocusNode.hasFocus) {
+                      _normalizeMinuteInput();
+                    } else if (_hourFocusNode.hasFocus) {
+                      _normalizeHourInput();
+                    }
+                    _dismissKeyboard();
+                  },
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -1021,6 +1006,39 @@ class _QuickActionChip extends StatelessWidget {
         context,
       ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    );
+  }
+}
+
+class _KeyboardAccessoryBar extends StatelessWidget {
+  const _KeyboardAccessoryBar({required this.onDone, this.onNext});
+
+  final VoidCallback onDone;
+  final VoidCallback? onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFF6F7F8),
+      elevation: 4,
+      child: SafeArea(
+        top: false,
+        child: Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: Color(0xFFD8DEE3))),
+          ),
+          child: Row(
+            children: [
+              if (onNext != null)
+                TextButton(onPressed: onNext, child: const Text('下一项')),
+              const Spacer(),
+              TextButton(onPressed: onDone, child: const Text('完成')),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

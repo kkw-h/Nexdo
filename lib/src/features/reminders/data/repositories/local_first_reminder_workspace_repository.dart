@@ -125,6 +125,26 @@ class LocalFirstReminderWorkspaceRepository
   }
 
   @override
+  Future<List<ReminderItem>> queryReminders(ReminderQuery query) async {
+    final workspace = await fetchWorkspace();
+    return workspace.reminders.where((item) {
+      final completionMatched = switch (query.completion) {
+        ReminderFilter.all => true,
+        ReminderFilter.pending => !item.isCompleted,
+        ReminderFilter.completed => item.isCompleted,
+      };
+      final listMatched =
+          query.listIds.isEmpty || query.listIds.contains(item.listId);
+      final groupMatched =
+          query.groupIds.isEmpty || query.groupIds.contains(item.groupId);
+      final tagMatched =
+          query.tagIds.isEmpty ||
+          item.tagIds.any((tagId) => query.tagIds.contains(tagId));
+      return completionMatched && listMatched && groupMatched && tagMatched;
+    }).toList();
+  }
+
+  @override
   Future<ReminderSaveResult> saveReminder(ReminderItem reminder) async {
     final workspace = await fetchWorkspace();
     final reminders = [...workspace.reminders];

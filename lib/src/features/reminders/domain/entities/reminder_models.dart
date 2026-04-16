@@ -2,6 +2,40 @@ import 'dart:convert';
 
 enum ReminderFilter { all, pending, completed }
 
+class ReminderQuery {
+  const ReminderQuery({
+    this.completion = ReminderFilter.all,
+    this.listIds = const [],
+    this.groupIds = const [],
+    this.tagIds = const [],
+  });
+
+  final ReminderFilter completion;
+  final List<String> listIds;
+  final List<String> groupIds;
+  final List<String> tagIds;
+
+  bool get isEmpty =>
+      completion == ReminderFilter.all &&
+      listIds.isEmpty &&
+      groupIds.isEmpty &&
+      tagIds.isEmpty;
+
+  ReminderQuery copyWith({
+    ReminderFilter? completion,
+    List<String>? listIds,
+    List<String>? groupIds,
+    List<String>? tagIds,
+  }) {
+    return ReminderQuery(
+      completion: completion ?? this.completion,
+      listIds: listIds ?? this.listIds,
+      groupIds: groupIds ?? this.groupIds,
+      tagIds: tagIds ?? this.tagIds,
+    );
+  }
+}
+
 enum ReminderRepeatRule { none, daily, weekly, monthly, yearly }
 
 extension ReminderRepeatRuleX on ReminderRepeatRule {

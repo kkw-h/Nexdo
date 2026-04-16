@@ -48,6 +48,10 @@ class ReminderController extends ChangeNotifier {
     return _syncFromServer();
   }
 
+  Future<List<ReminderItem>> queryReminders(ReminderQuery query) {
+    return _repository.queryReminders(query);
+  }
+
   List<ReminderItem> remindersFor(ReminderFilter filter) {
     switch (filter) {
       case ReminderFilter.all:

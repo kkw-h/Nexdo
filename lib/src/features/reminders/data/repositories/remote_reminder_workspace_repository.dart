@@ -53,6 +53,30 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
   }
 
   @override
+  Future<List<ReminderItem>> queryReminders(ReminderQuery query) async {
+    final data =
+        await _authorizedRequest(
+              method: 'GET',
+              path: '/reminders',
+              queryParameters: {
+                if (query.completion == ReminderFilter.pending)
+                  'is_completed': false,
+                if (query.completion == ReminderFilter.completed)
+                  'is_completed': true,
+                if (query.listIds.isNotEmpty)
+                  'list_ids': query.listIds.join(','),
+                if (query.groupIds.isNotEmpty)
+                  'group_ids': query.groupIds.join(','),
+                if (query.tagIds.isNotEmpty) 'tag_ids': query.tagIds.join(','),
+              },
+            )
+            as List<dynamic>?;
+    return (data ?? const <dynamic>[])
+        .map((item) => _mapReminder(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  @override
   Future<ReminderSaveResult> saveReminder(ReminderItem reminder) async {
     final workspace = await _ensureWorkspace();
     final exists = workspace.reminders.any((item) => item.id == reminder.id);

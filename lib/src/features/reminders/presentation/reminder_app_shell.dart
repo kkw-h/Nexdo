@@ -46,13 +46,18 @@ enum ReminderSortMode { dueDate, createdAt, title }
 
 class _ReminderAppShellState extends State<ReminderAppShell> {
   static const _permissionPromptKey = 'permission_prompt.shown';
+  static const _defaultInboxQuery = ReminderQuery(
+    completion: ReminderFilter.pending,
+  );
   final GlobalKey<QuickNotesPageState> _quickNotesPageKey =
       GlobalKey<QuickNotesPageState>();
   ReminderController? _controller;
   QuickNoteLocalDataSource? _quickNoteDataSource;
   QuickNotesRepository? _quickNotesRepository;
   QuickNotesDiagnostics? _quickNotesDiagnostics;
-  ReminderFilter _selectedFilter = ReminderFilter.all;
+  ReminderQuery _inboxQuery = _defaultInboxQuery;
+  List<ReminderItem>? _inboxQueryResults;
+  bool _inboxQueryLoading = false;
   ReminderSortMode _sortMode = ReminderSortMode.dueDate;
   int _selectedNavIndex = 0;
   DateTime _selectedDate = DateTime.now();
@@ -113,6 +118,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
           _quickNoteDataSource!,
         );
       });
+      await _runInboxQuery(controller, query: _defaultInboxQuery);
       _startCountdownTicker();
       await _maybeShowPermissionPrompt(preferences);
     } on AuthException catch (error) {
@@ -245,6 +251,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
               setState(() {
                 _selectedNavIndex = index;
               });
+              unawaited(_refreshForNavIndex(index, controller));
             },
             destinations: const [
               NavigationDestination(
@@ -334,6 +341,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     });
     try {
       await controller.refresh();
+      await _refreshInboxQueryIfNeeded(controller);
       if (!mounted) {
         return;
       }
@@ -363,6 +371,45 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
           _refreshing = false;
         });
       }
+    }
+  }
+
+  Future<void> _refreshForNavIndex(
+    int index,
+    ReminderController controller,
+  ) async {
+    try {
+      switch (index) {
+        case 0:
+        case 1:
+          await controller.refresh();
+          if (index == 1) {
+            await _refreshInboxQueryIfNeeded(controller);
+          }
+          break;
+        case 2:
+          await _quickNotesPageKey.currentState?.refreshNotes();
+          break;
+        default:
+          break;
+      }
+    } on AuthException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+      if (error.shouldLogout) {
+        await widget.onLogout();
+      }
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('刷新最新数据失败，请稍后再试')));
     }
   }
 
@@ -396,11 +443,12 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     ReminderController controller,
     ReminderItem reminder,
     bool isCompleted,
-  ) {
-    return _handleReminderAction(
+  ) async {
+    await _handleReminderAction(
       () => controller.toggleCompletion(reminder, isCompleted),
       fallbackMessage: '更新提醒状态失败，请稍后再试',
     );
+    await _refreshInboxQueryIfNeeded(controller);
   }
 
   Future<void> _deleteReminder(
@@ -409,10 +457,13 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
   ) async {
     await _confirmReminderDelete(
       message: '确认删除提醒“${reminder.title}”吗？',
-      onConfirm: () => _handleReminderAction(
-        () => controller.removeReminder(reminder.id),
-        fallbackMessage: '删除提醒失败，请稍后再试',
-      ),
+      onConfirm: () async {
+        await _handleReminderAction(
+          () => controller.removeReminder(reminder.id),
+          fallbackMessage: '删除提醒失败，请稍后再试',
+        );
+        await _refreshInboxQueryIfNeeded(controller);
+      },
     );
   }
 
@@ -447,24 +498,104 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     }
   }
 
+  Future<void> _runInboxQuery(
+    ReminderController controller, {
+    ReminderQuery? query,
+  }) async {
+    final nextQuery = query ?? _inboxQuery;
+    if (nextQuery.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _inboxQuery = nextQuery;
+        _inboxQueryLoading = false;
+        _inboxQueryResults = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _inboxQuery = nextQuery;
+      _inboxQueryLoading = true;
+    });
+
+    try {
+      final reminders = await controller.queryReminders(nextQuery);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _inboxQueryResults = reminders;
+      });
+    } on AuthException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+      if (error.shouldLogout) {
+        await widget.onLogout();
+      }
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('查询提醒失败，请稍后再试')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _inboxQueryLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _refreshInboxQueryIfNeeded(ReminderController controller) async {
+    if (_inboxQuery.isEmpty) {
+      return;
+    }
+    await _runInboxQuery(controller);
+  }
+
   Widget _buildInboxView(ReminderController controller) {
-    final reminders = _sortReminders(controller.remindersFor(_selectedFilter));
+    final reminders = _sortReminders(
+      _inboxQuery.isEmpty
+          ? controller.reminders
+          : (_inboxQueryResults ?? const <ReminderItem>[]),
+    );
+    final querySummary = _buildInboxQuerySummary(controller);
 
     return Column(
       children: [
         Row(
           children: [
             Expanded(
-              child: _FilterBar(
-                selectedFilter: _selectedFilter,
-                onChanged: (filter) {
-                  setState(() {
-                    _selectedFilter = filter;
-                  });
+              child: _InboxQueryButton(
+                hasActiveQuery: !_inboxQuery.isEmpty,
+                onTap: () async {
+                  final query = await showModalBottomSheet<ReminderQuery>(
+                    context: context,
+                    isScrollControlled: true,
+                    useSafeArea: true,
+                    builder: (context) => _ReminderQuerySheet(
+                      initialQuery: _inboxQuery,
+                      lists: controller.lists,
+                      groups: controller.groups,
+                      tags: controller.tags,
+                    ),
+                  );
+                  if (query == null) {
+                    return;
+                  }
+                  await _runInboxQuery(controller, query: query);
                 },
-                controller: controller,
               ),
             ),
+            const SizedBox(width: 12),
             _SortButton(
               mode: _sortMode,
               onChanged: (mode) {
@@ -475,13 +606,65 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
             ),
           ],
         ),
+        if (_inboxQueryLoading) ...[
+          const SizedBox(height: 12),
+          const LinearProgressIndicator(minHeight: 3),
+        ],
+        if (querySummary.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ...querySummary.map(
+                  (label) => _InfoChip(icon: Icons.tune_rounded, label: label),
+                ),
+                ActionChip(
+                  label: const Text('清空查询'),
+                  onPressed: () =>
+                      _runInboxQuery(controller, query: const ReminderQuery()),
+                  backgroundColor: const Color(0xFFEAF2EE),
+                  side: BorderSide.none,
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         Expanded(
           child: reminders.isEmpty
-              ? const _EmptyPanel(
-                  title: '当前没有提醒',
-                  subtitle: '先创建提醒，列表会按时间自动排列。',
-                )
+              ? (_inboxQuery.isEmpty
+                    ? const _EmptyPanel(
+                        title: '当前没有提醒',
+                        subtitle: '先创建提醒，列表会按时间自动排列。',
+                      )
+                    : _InboxQueryEmptyState(
+                        summaryLabels: querySummary,
+                        onAdjustQuery: () async {
+                          final query =
+                              await showModalBottomSheet<ReminderQuery>(
+                                context: context,
+                                isScrollControlled: true,
+                                useSafeArea: true,
+                                builder: (context) => _ReminderQuerySheet(
+                                  initialQuery: _inboxQuery,
+                                  lists: controller.lists,
+                                  groups: controller.groups,
+                                  tags: controller.tags,
+                                ),
+                              );
+                          if (query == null) {
+                            return;
+                          }
+                          await _runInboxQuery(controller, query: query);
+                        },
+                        onClearQuery: () => _runInboxQuery(
+                          controller,
+                          query: const ReminderQuery(),
+                        ),
+                      ))
               : ListView.separated(
                   itemCount: reminders.length,
                   separatorBuilder: (context, _) => const SizedBox(height: 12),
@@ -503,6 +686,34 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
         ),
       ],
     );
+  }
+
+  List<String> _buildInboxQuerySummary(ReminderController controller) {
+    final labels = <String>[];
+    switch (_inboxQuery.completion) {
+      case ReminderFilter.all:
+        break;
+      case ReminderFilter.pending:
+        labels.add('未完成');
+      case ReminderFilter.completed:
+        labels.add('已完成');
+    }
+    for (final id in _inboxQuery.listIds) {
+      final list = controller.findList(id);
+      if (list != null) {
+        labels.add('清单·${list.name}');
+      }
+    }
+    for (final id in _inboxQuery.groupIds) {
+      final group = controller.findGroup(id);
+      if (group != null) {
+        labels.add('分组·${group.name}');
+      }
+    }
+    for (final tag in controller.findTags(_inboxQuery.tagIds)) {
+      labels.add('标签·${tag.name}');
+    }
+    return labels;
   }
 
   Widget _buildTodayView(
@@ -741,6 +952,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
       () => controller.saveReminder(result.reminder),
       fallbackMessage: '保存提醒失败，请稍后再试',
     );
+    await _refreshInboxQueryIfNeeded(controller);
   }
 
   Future<void> _openDataOverview(ReminderController controller) async {
@@ -1112,43 +1324,249 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _FilterBar extends StatelessWidget {
-  const _FilterBar({
-    required this.selectedFilter,
-    required this.onChanged,
-    required this.controller,
-  });
+class _InboxQueryButton extends StatelessWidget {
+  const _InboxQueryButton({required this.hasActiveQuery, required this.onTap});
 
-  final ReminderFilter selectedFilter;
-  final ValueChanged<ReminderFilter> onChanged;
-  final ReminderController controller;
+  final bool hasActiveQuery;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final labels = {
-      ReminderFilter.all: '全部',
-      ReminderFilter.pending: '未完成',
-      ReminderFilter.completed: '已完成',
-    };
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: ReminderFilter.values.map((filter) {
-          final isSelected = filter == selectedFilter;
-          return Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: ChoiceChip(
-              label: Text(
-                '${labels[filter]} ${controller.remindersFor(filter).length}',
-              ),
-              selected: isSelected,
-              onSelected: (_) => onChanged(filter),
-              side: BorderSide.none,
-            ),
-          );
-        }).toList(),
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        side: BorderSide(
+          color: hasActiveQuery
+              ? const Color(0xFF126A5A)
+              : const Color(0xFFE0E6E3),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        foregroundColor: hasActiveQuery
+            ? const Color(0xFF126A5A)
+            : const Color(0xFF42544D),
       ),
+      icon: Icon(hasActiveQuery ? Icons.tune_rounded : Icons.search_rounded),
+      label: Text(hasActiveQuery ? '查询条件已生效' : '查询提醒'),
+    );
+  }
+}
+
+class _ReminderQuerySheet extends StatefulWidget {
+  const _ReminderQuerySheet({
+    required this.initialQuery,
+    required this.lists,
+    required this.groups,
+    required this.tags,
+  });
+
+  final ReminderQuery initialQuery;
+  final List<ReminderList> lists;
+  final List<ReminderGroup> groups;
+  final List<ReminderTag> tags;
+
+  @override
+  State<_ReminderQuerySheet> createState() => _ReminderQuerySheetState();
+}
+
+class _ReminderQuerySheetState extends State<_ReminderQuerySheet> {
+  late ReminderFilter _completion;
+  late Set<String> _selectedListIds;
+  late Set<String> _selectedGroupIds;
+  late Set<String> _selectedTagIds;
+
+  @override
+  void initState() {
+    super.initState();
+    _completion = widget.initialQuery.completion;
+    _selectedListIds = {...widget.initialQuery.listIds};
+    _selectedGroupIds = {...widget.initialQuery.groupIds};
+    _selectedTagIds = {...widget.initialQuery.tagIds};
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '查询提醒',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 18),
+          _QuerySection(
+            title: '完成状态',
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _queryChip(
+                  label: '全部',
+                  selected: _completion == ReminderFilter.all,
+                  onTap: () => setState(() {
+                    _completion = ReminderFilter.all;
+                  }),
+                ),
+                _queryChip(
+                  label: '未完成',
+                  selected: _completion == ReminderFilter.pending,
+                  onTap: () => setState(() {
+                    _completion = ReminderFilter.pending;
+                  }),
+                ),
+                _queryChip(
+                  label: '已完成',
+                  selected: _completion == ReminderFilter.completed,
+                  onTap: () => setState(() {
+                    _completion = ReminderFilter.completed;
+                  }),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _QuerySection(
+            title: '任务清单',
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: widget.lists
+                  .map(
+                    (item) => _queryChip(
+                      label: item.name,
+                      selected: _selectedListIds.contains(item.id),
+                      onTap: () => setState(() {
+                        if (!_selectedListIds.add(item.id)) {
+                          _selectedListIds.remove(item.id);
+                        }
+                      }),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _QuerySection(
+            title: '分组',
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: widget.groups
+                  .map(
+                    (item) => _queryChip(
+                      label: item.name,
+                      selected: _selectedGroupIds.contains(item.id),
+                      onTap: () => setState(() {
+                        if (!_selectedGroupIds.add(item.id)) {
+                          _selectedGroupIds.remove(item.id);
+                        }
+                      }),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _QuerySection(
+            title: '标签',
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: widget.tags
+                  .map(
+                    (item) => _queryChip(
+                      label: item.name,
+                      selected: _selectedTagIds.contains(item.id),
+                      onTap: () => setState(() {
+                        if (!_selectedTagIds.add(item.id)) {
+                          _selectedTagIds.remove(item.id);
+                        }
+                      }),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop(const ReminderQuery());
+                },
+                child: const Text('清空'),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('取消'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(context).pop(
+                    ReminderQuery(
+                      completion: _completion,
+                      listIds: _selectedListIds.toList(),
+                      groupIds: _selectedGroupIds.toList(),
+                      tagIds: _selectedTagIds.toList(),
+                    ),
+                  );
+                },
+                child: const Text('应用查询'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _queryChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      side: BorderSide.none,
+      selectedColor: const Color(0xFFD7EDE3),
+      checkmarkColor: const Color(0xFF126A5A),
+      labelStyle: TextStyle(
+        color: selected ? const Color(0xFF126A5A) : null,
+        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+      ),
+    );
+  }
+}
+
+class _QuerySection extends StatelessWidget {
+  const _QuerySection({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 10),
+        child,
+      ],
     );
   }
 }
@@ -1858,6 +2276,135 @@ class _EmptyPanel extends StatelessWidget {
               style: Theme.of(
                 context,
               ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF60716B)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InboxQueryEmptyState extends StatelessWidget {
+  const _InboxQueryEmptyState({
+    required this.summaryLabels,
+    required this.onAdjustQuery,
+    required this.onClearQuery,
+  });
+
+  final List<String> summaryLabels;
+  final Future<void> Function() onAdjustQuery;
+  final Future<void> Function() onClearQuery;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(maxWidth: 640),
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF4F7F3),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: const Color(0xFFD6E4DC)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 18,
+              offset: Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE3EFE9),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Icon(
+                    Icons.search_off_rounded,
+                    size: 26,
+                    color: Color(0xFF126A5A),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '没有符合条件的提醒',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '换一个查询条件，或者清空后查看全部提醒。',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: const Color(0xFF60716B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (summaryLabels.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              Text(
+                '当前条件',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: const Color(0xFF4E625B),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: summaryLabels
+                    .map(
+                      (label) => Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: const Color(0xFFD6E4DC)),
+                        ),
+                        child: Text(
+                          label,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: const Color(0xFF355D53),
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                FilledButton(
+                  onPressed: onAdjustQuery,
+                  child: const Text('调整查询'),
+                ),
+                TextButton(onPressed: onClearQuery, child: const Text('清空查询')),
+              ],
             ),
           ],
         ),

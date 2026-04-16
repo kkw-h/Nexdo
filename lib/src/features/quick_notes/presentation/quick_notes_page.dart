@@ -37,6 +37,7 @@ class QuickNotesPageState extends State<QuickNotesPage> {
 
   List<QuickNote> _notes = const [];
   bool _loading = true;
+  bool _refreshing = false;
   String? _playingNoteId;
   Duration _playbackPosition = Duration.zero;
   Duration _playbackDuration = Duration.zero;
@@ -133,6 +134,10 @@ class QuickNotesPageState extends State<QuickNotesPage> {
     return _refreshDiagnostics();
   }
 
+  Future<void> refreshNotes() {
+    return _refreshNotes();
+  }
+
   Future<void> _saveNote(QuickNote note) async {
     try {
       final updated = await widget.repository.createNote(
@@ -180,6 +185,39 @@ class QuickNotesPageState extends State<QuickNotesPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  Future<void> _refreshNotes() async {
+    if (_refreshing) {
+      return;
+    }
+    setState(() {
+      _refreshing = true;
+    });
+    try {
+      final notes = await widget.repository.refreshNotes();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _notes = notes;
+        _loading = false;
+      });
+      await _refreshDiagnostics();
+    } on AuthException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _refreshing = false;
+        });
+      }
     }
   }
 
@@ -348,34 +386,38 @@ class QuickNotesPageState extends State<QuickNotesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      children: [
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.only(top: 40),
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (_notes.isEmpty)
-          const _QuickNotesEmptyState()
-        else
-          ..._notes.map(
-            (note) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _QuickNoteCard(
-                note: note,
-                isPlaying: _playingNoteId == note.id,
-                playbackPosition: _playingNoteId == note.id
-                    ? _playbackPosition
-                    : Duration.zero,
-                playbackDuration: _playingNoteId == note.id
-                    ? _playbackDuration
-                    : Duration.zero,
-                onPlay: note.hasAudio ? () => _togglePlayback(note) : null,
-                onDelete: () => _deleteNote(note),
+    return RefreshIndicator(
+      onRefresh: _refreshNotes,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.only(top: 40),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_notes.isEmpty)
+            const _QuickNotesEmptyState()
+          else
+            ..._notes.map(
+              (note) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _QuickNoteCard(
+                  note: note,
+                  isPlaying: _playingNoteId == note.id,
+                  playbackPosition: _playingNoteId == note.id
+                      ? _playbackPosition
+                      : Duration.zero,
+                  playbackDuration: _playingNoteId == note.id
+                      ? _playbackDuration
+                      : Duration.zero,
+                  onPlay: note.hasAudio ? () => _togglePlayback(note) : null,
+                  onDelete: () => _deleteNote(note),
+                ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -759,10 +801,7 @@ class _QuickNoteVoiceSheetState extends State<_QuickNoteVoiceSheet> {
     final bucketSize = input.length / targetCount;
     for (var index = 0; index < targetCount; index++) {
       final start = (index * bucketSize).floor();
-      final end = math.min(
-        input.length,
-        ((index + 1) * bucketSize).ceil(),
-      );
+      final end = math.min(input.length, ((index + 1) * bucketSize).ceil());
       final segment = input.sublist(start, math.max(start + 1, end));
       final average =
           segment.reduce((sum, value) => sum + value) / segment.length;
@@ -1066,15 +1105,14 @@ class _QuickNoteCard extends StatelessWidget {
                                               : _formatStaticDuration(
                                                   note.audioDurationMillis!,
                                                 )),
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall?.copyWith(
-                                      color: const Color(0xFF60716B),
-                                      fontWeight: isPlaying
-                                          ? FontWeight.w600
-                                          : null,
-                                      height: 1,
-                                    ),
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: const Color(0xFF60716B),
+                                          fontWeight: isPlaying
+                                              ? FontWeight.w600
+                                              : null,
+                                          height: 1,
+                                        ),
                                     textAlign: TextAlign.center,
                                   ),
                                 ],
@@ -1087,13 +1125,12 @@ class _QuickNoteCard extends StatelessWidget {
                       if (isPlaying)
                         Text(
                           '播放进度 ${_formatDuration(playbackPosition)} / ${_formatDuration(totalDuration)}',
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(
-                            color: const Color(0xFF60716B),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 11,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: const Color(0xFF60716B),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 11,
+                              ),
                         ),
                     ],
                   ),
@@ -1165,7 +1202,9 @@ class _AudioWaveformStrip extends StatelessWidget {
     }
     const targetCount = 24;
     final samples = rawSamples
-        .map((value) => value.isFinite ? value.clamp(0.08, 1.0).toDouble() : 0.08)
+        .map(
+          (value) => value.isFinite ? value.clamp(0.08, 1.0).toDouble() : 0.08,
+        )
         .toList();
     if (samples.length == targetCount) {
       return samples;

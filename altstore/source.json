@@ -20,10 +20,10 @@
       "versions": [
         {
           "version": "1.0.9",
-          "date": "2026-04-16T03:32:06Z",
-          "localizedDescription": "新增提醒左滑删除交互，点击删除按钮后再进行确认。",
+          "date": "2026-04-16T06:44:42Z",
+          "localizedDescription": "Nexdo 1.0.9 发布",
           "downloadURL": "https://github.com/kkw-h/Nexdo/releases/download/v1.0.9/Nexdo-AltStore-1.0.9.ipa",
-          "size": 11210300
+          "size": 11228214
         },
         {
           "version": "1.0.8",

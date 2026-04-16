@@ -602,10 +602,9 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
       onTap: _dismissKeyboard,
       child: formContent,
     );
-    final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
     final showKeyboardToolbar =
         Theme.of(context).platform == TargetPlatform.iOS &&
-        viewInsetsBottom > 0 &&
+        MediaQuery.of(context).viewInsets.bottom > 0 &&
         (_hourFocusNode.hasFocus || _minuteFocusNode.hasFocus);
 
     return Scaffold(
@@ -618,7 +617,7 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: viewInsetsBottom,
+                bottom: 0,
                 child: _KeyboardAccessoryBar(
                   onNext: _hourFocusNode.hasFocus
                       ? () {

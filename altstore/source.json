@@ -19,6 +19,13 @@
       },
       "versions": [
         {
+          "version": "1.0.8",
+          "date": "2026-04-16T02:35:42Z",
+          "localizedDescription": "修复 iOS 提醒时间输入时完成按钮位置异常。",
+          "downloadURL": "https://github.com/kkw-h/Nexdo/releases/download/v1.0.8/Nexdo-AltStore-1.0.8.ipa",
+          "size": 11186627
+        },
+        {
           "version": "1.0.7",
           "date": "2026-04-16T02:23:42Z",
           "localizedDescription": "接入闪念语音波形展示并优化播放样式与 Header 安全处理。",

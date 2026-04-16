@@ -56,7 +56,7 @@ if [[ -z "$VERSION_LINE" ]]; then
   exit 1
 fi
 
-APP_VERSION="${VERSION_LINE%%+*}"
+APP_VERSION="${ALTSTORE_APP_VERSION:-${VERSION_LINE%%+*}}"
 if [[ -z "$APP_VERSION" ]]; then
   echo "[AltStore] version 字段格式异常: $VERSION_LINE" >&2
   exit 1

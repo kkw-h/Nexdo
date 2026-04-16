@@ -180,22 +180,14 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     final quickNoteDataSource = _quickNoteDataSource;
     if (_error != null) {
       return Scaffold(
-        body: Center(
+        body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.cloud_off_rounded, size: 48),
-                const SizedBox(height: 12),
-                Text(
-                  _error!,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 12),
-                FilledButton(onPressed: _initialize, child: const Text('重试加载')),
-              ],
+            padding: const EdgeInsets.all(20),
+            child: _ErrorPanel(
+              title: '加载提醒数据失败',
+              message: _error!,
+              actionLabel: '重试加载',
+              onPressed: _initialize,
             ),
           ),
         ),
@@ -205,7 +197,14 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
         controller.isLoading ||
         quickNoteDataSource == null ||
         _quickNotesRepository == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: _ReminderListLoadingSkeleton(),
+          ),
+        ),
+      );
     }
 
     return AnimatedBuilder(
@@ -219,7 +218,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
           _buildProfileView(controller),
         ];
         final titles = ['今日', '清单', '闪念', '我的'];
-        final fabLabel = _selectedNavIndex == 2 ? '新建闪念' : '新建提醒';
+        final fabLabel = _selectedNavIndex == 2 ? '闪念' : '新建';
         final fabIcon = _selectedNavIndex == 2
             ? Icons.bolt_rounded
             : Icons.add_alert_rounded;
@@ -231,8 +230,24 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
             }
             _openForm(controller);
           },
-          icon: Icon(fabIcon),
-          label: Text(fabLabel),
+          extendedPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 0,
+          ),
+          icon: Icon(fabIcon, size: 18),
+          label: Text(
+            fabLabel,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        );
+        final compactFab = SizedBox(
+          height: 44,
+          child: fab,
         );
 
         return Scaffold(
@@ -242,9 +257,9 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                     ? GestureDetector(
                         onLongPress: () => _quickNotesPageKey.currentState
                             ?.openVoiceComposer(),
-                        child: fab,
+                        child: compactFab,
                       )
-                    : fab),
+                    : compactFab),
           bottomNavigationBar: NavigationBar(
             selectedIndex: _selectedNavIndex,
             onDestinationSelected: (index) {
@@ -298,9 +313,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                       onRefresh:
                           (_selectedNavIndex == 2 || _selectedNavIndex == 3)
                           ? null
-                          : (_refreshing
-                                ? null
-                                : () => _refreshData(controller)),
+                          : () => _refreshData(controller),
                       isRefreshing:
                           (_selectedNavIndex == 2 || _selectedNavIndex == 3)
                           ? false
@@ -621,12 +634,11 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                 ...querySummary.map(
                   (label) => _InfoChip(icon: Icons.tune_rounded, label: label),
                 ),
-                ActionChip(
-                  label: const Text('清空查询'),
-                  onPressed: () =>
+                _CompactActionChip(
+                  icon: Icons.close_rounded,
+                  label: '清空查询',
+                  onTap: () =>
                       _runInboxQuery(controller, query: const ReminderQuery()),
-                  backgroundColor: const Color(0xFFEAF2EE),
-                  side: BorderSide.none,
                 ),
               ],
             ),
@@ -634,55 +646,65 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
         ],
         const SizedBox(height: 16),
         Expanded(
-          child: reminders.isEmpty
-              ? (_inboxQuery.isEmpty
-                    ? const _EmptyPanel(
-                        title: '当前没有提醒',
-                        subtitle: '先创建提醒，列表会按时间自动排列。',
-                      )
-                    : _InboxQueryEmptyState(
-                        summaryLabels: querySummary,
-                        onAdjustQuery: () async {
-                          final query =
-                              await showModalBottomSheet<ReminderQuery>(
-                                context: context,
-                                isScrollControlled: true,
-                                useSafeArea: true,
-                                builder: (context) => _ReminderQuerySheet(
-                                  initialQuery: _inboxQuery,
-                                  lists: controller.lists,
-                                  groups: controller.groups,
-                                  tags: controller.tags,
-                                ),
-                              );
-                          if (query == null) {
-                            return;
-                          }
-                          await _runInboxQuery(controller, query: query);
-                        },
-                        onClearQuery: () => _runInboxQuery(
-                          controller,
-                          query: const ReminderQuery(),
+          child: RefreshIndicator(
+            onRefresh: () => _refreshData(controller),
+            child: reminders.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      _inboxQuery.isEmpty
+                          ? const _EmptyPanel(
+                              title: '当前没有提醒',
+                              subtitle: '先创建提醒，列表会按时间自动排列。',
+                            )
+                          : _InboxQueryEmptyState(
+                              summaryLabels: querySummary,
+                              onAdjustQuery: () async {
+                                final query =
+                                    await showModalBottomSheet<ReminderQuery>(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      useSafeArea: true,
+                                      builder: (context) =>
+                                          _ReminderQuerySheet(
+                                            initialQuery: _inboxQuery,
+                                            lists: controller.lists,
+                                            groups: controller.groups,
+                                            tags: controller.tags,
+                                          ),
+                                    );
+                                if (query == null) {
+                                  return;
+                                }
+                                await _runInboxQuery(controller, query: query);
+                              },
+                              onClearQuery: () => _runInboxQuery(
+                                controller,
+                                query: const ReminderQuery(),
+                              ),
+                            ),
+                    ],
+                  )
+                : ListView.separated(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: reminders.length,
+                    separatorBuilder: (context, _) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final reminder = reminders[index];
+                      return _ReminderSwipeAction(
+                        reminderId: reminder.id,
+                        onDelete: () => _deleteReminder(controller, reminder),
+                        child: _ReminderCard(
+                          reminder: reminder,
+                          controller: controller,
+                          onTap: () => _openForm(controller, reminder: reminder),
+                          onToggleCompletion: (value) =>
+                              _toggleCompletion(controller, reminder, value),
                         ),
-                      ))
-              : ListView.separated(
-                  itemCount: reminders.length,
-                  separatorBuilder: (context, _) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final reminder = reminders[index];
-                    return _ReminderSwipeAction(
-                      reminderId: reminder.id,
-                      onDelete: () => _deleteReminder(controller, reminder),
-                      child: _ReminderCard(
-                        reminder: reminder,
-                        controller: controller,
-                        onTap: () => _openForm(controller, reminder: reminder),
-                        onToggleCompletion: (value) =>
-                            _toggleCompletion(controller, reminder, value),
-                      ),
-                    );
-                  },
-                ),
+                      );
+                    },
+                  ),
+          ),
         ),
       ],
     );
@@ -722,8 +744,11 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
   ) {
     final orderedItems = _sortReminders(todayItems);
 
-    return ListView(
-      children: [
+    return RefreshIndicator(
+      onRefresh: () => _refreshData(controller),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
         Row(
           children: [
             Expanded(
@@ -775,7 +800,8 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
               ),
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1092,7 +1118,7 @@ class _TopBar extends StatelessWidget {
           customTrailing!
         else if (onRefresh != null)
           TextButton.icon(
-            onPressed: onRefresh,
+            onPressed: isRefreshing ? null : onRefresh,
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               foregroundColor: const Color(0xFF126A5A),
@@ -1835,6 +1861,181 @@ class _InfoChip extends StatelessWidget {
   }
 }
 
+class _CompactActionChip extends StatelessWidget {
+  const _CompactActionChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEAF2EE),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: Color(0xFF4B5C57),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF4B5C57),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReminderListLoadingSkeleton extends StatelessWidget {
+  const _ReminderListLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const NeverScrollableScrollPhysics(),
+      children: const [
+        _LoadingBar(widthFactor: 0.36, height: 30),
+        SizedBox(height: 16),
+        _LoadingBar(widthFactor: 0.22),
+        SizedBox(height: 14),
+        _LoadingCard(height: 108),
+        SizedBox(height: 12),
+        _LoadingCard(height: 108),
+        SizedBox(height: 12),
+        _LoadingCard(height: 108),
+      ],
+    );
+  }
+}
+
+class _LoadingCard extends StatelessWidget {
+  const _LoadingCard({required this.height});
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2F5F4),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _LoadingBar(widthFactor: 0.28),
+            SizedBox(height: 12),
+            _LoadingBar(widthFactor: 0.72),
+            SizedBox(height: 10),
+            _LoadingBar(widthFactor: 0.52),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadingBar extends StatelessWidget {
+  const _LoadingBar({required this.widthFactor, this.height = 14});
+
+  final double widthFactor;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      widthFactor: widthFactor,
+      alignment: Alignment.centerLeft,
+      child: _BreathingPlaceholder(
+        borderRadius: BorderRadius.circular(999),
+        child: SizedBox(height: height),
+      ),
+    );
+  }
+}
+
+class _BreathingPlaceholder extends StatefulWidget {
+  const _BreathingPlaceholder({
+    required this.child,
+    required this.borderRadius,
+  });
+
+  final Widget child;
+  final BorderRadius borderRadius;
+
+  @override
+  State<_BreathingPlaceholder> createState() => _BreathingPlaceholderState();
+}
+
+class _BreathingPlaceholderState extends State<_BreathingPlaceholder>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      child: widget.child,
+      builder: (context, child) {
+        final progress = _controller.value;
+        final begin = Alignment(-1.8 + (2.6 * progress), 0);
+        final end = Alignment(-0.8 + (2.6 * progress), 0);
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: widget.borderRadius,
+            gradient: LinearGradient(
+              begin: begin,
+              end: end,
+              colors: const [
+                Color(0xFFE4ECE8),
+                Color(0xFFF4F8F6),
+                Color(0xFFE4ECE8),
+              ],
+              stops: const [0.1, 0.5, 0.9],
+            ),
+          ),
+          child: child,
+        );
+      },
+    );
+  }
+}
+
 class _ReminderSwipeAction extends StatelessWidget {
   const _ReminderSwipeAction({
     required this.reminderId,
@@ -2284,6 +2485,60 @@ class _EmptyPanel extends StatelessWidget {
   }
 }
 
+class _ErrorPanel extends StatelessWidget {
+  const _ErrorPanel({
+    required this.title,
+    required this.message,
+    required this.actionLabel,
+    required this.onPressed,
+  });
+
+  final String title;
+  final String message;
+  final String actionLabel;
+  final Future<void> Function() onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.cloud_off_rounded,
+              size: 44,
+              color: Color(0xFF60716B),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF60716B)),
+            ),
+            const SizedBox(height: 14),
+            FilledButton.tonal(
+              onPressed: () => unawaited(onPressed()),
+              child: Text(actionLabel),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _InboxQueryEmptyState extends StatelessWidget {
   const _InboxQueryEmptyState({
     required this.summaryLabels,
@@ -2561,7 +2816,7 @@ class _WorkspaceManagerPageState extends State<_WorkspaceManagerPage> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '先用本地数据维护组织结构，后续接 API 时可以整体复用。',
+                    '统一管理任务清单、分组和标签，修改后会和当前数据结构保持同步。',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 18),
@@ -3080,10 +3335,38 @@ class _ManagerSection extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             if (items.isEmpty)
-              Text(
-                emptyHint,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF60716B),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F7F6),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE2ECE7),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.inventory_2_rounded,
+                        size: 18,
+                        color: Color(0xFF355D53),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        emptyHint,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: const Color(0xFF60716B),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               )
             else if (reorderable && onReorder != null)

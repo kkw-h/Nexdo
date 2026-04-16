@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:record/record.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
@@ -38,11 +38,10 @@ class QuickNotesPageState extends State<QuickNotesPage> {
   List<QuickNote> _notes = const [];
   bool _loading = true;
   bool _refreshing = false;
+  String? _loadError;
   String? _playingNoteId;
   Duration _playbackPosition = Duration.zero;
   Duration _playbackDuration = Duration.zero;
-  Timer? _playbackTicker;
-  DateTime? _playbackStartedAt;
   bool _playbackActionInFlight = false;
   bool _diagnosing = false;
   bool? _microphonePermissionGranted;
@@ -53,32 +52,41 @@ class QuickNotesPageState extends State<QuickNotesPage> {
     super.initState();
     _loadNotes();
     unawaited(_refreshDiagnostics());
-    _player.onPlayerComplete.listen((_) {
-      _stopPlaybackTicker();
-      if (mounted) {
+    _player.playerStateStream.listen((state) {
+      if (!mounted || _playingNoteId == null) {
+        return;
+      }
+      if (state.processingState == ProcessingState.completed) {
         setState(() {
           _playingNoteId = null;
           _playbackPosition = Duration.zero;
           _playbackDuration = Duration.zero;
-          _playbackStartedAt = null;
         });
       }
     });
-    _player.onDurationChanged.listen((duration) {
+    _player.durationStream.listen((duration) {
+      if (!mounted || _playingNoteId == null) {
+        return;
+      }
+      if (duration == null || duration <= Duration.zero) {
+        return;
+      }
+      setState(() {
+        _playbackDuration = duration;
+      });
+    });
+    _player.positionStream.listen((position) {
       if (!mounted || _playingNoteId == null) {
         return;
       }
       setState(() {
-        if (duration > Duration.zero) {
-          _playbackDuration = duration;
-        }
+        _playbackPosition = position;
       });
     });
   }
 
   @override
   void dispose() {
-    _stopPlaybackTicker();
     unawaited(_player.dispose());
     unawaited(_recorder.dispose());
     unawaited(_speech.cancel());
@@ -174,6 +182,7 @@ class QuickNotesPageState extends State<QuickNotesPage> {
       setState(() {
         _notes = notes;
         _loading = false;
+        _loadError = null;
       });
     } on AuthException catch (error) {
       if (!mounted) {
@@ -181,10 +190,8 @@ class QuickNotesPageState extends State<QuickNotesPage> {
       }
       setState(() {
         _loading = false;
+        _loadError = error.message;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
 
@@ -203,15 +210,16 @@ class QuickNotesPageState extends State<QuickNotesPage> {
       setState(() {
         _notes = notes;
         _loading = false;
+        _loadError = null;
       });
       await _refreshDiagnostics();
     } on AuthException catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      setState(() {
+        _loadError = error.message;
+      });
     } finally {
       if (mounted) {
         setState(() {
@@ -310,7 +318,7 @@ class QuickNotesPageState extends State<QuickNotesPage> {
         await _stopPlayback();
       }
       final path = await widget.repository.ensurePlayableAudioPath(note);
-      await _player.play(DeviceFileSource(path));
+      await _player.setFilePath(path);
       if (!mounted) {
         return;
       }
@@ -320,9 +328,8 @@ class QuickNotesPageState extends State<QuickNotesPage> {
         _playbackDuration = note.audioDurationMillis == null
             ? Duration.zero
             : Duration(milliseconds: note.audioDurationMillis!);
-        _playbackStartedAt = DateTime.now();
       });
-      _startPlaybackTicker();
+      unawaited(_player.play());
     } on AuthException catch (error) {
       if (!mounted) {
         return;
@@ -336,7 +343,6 @@ class QuickNotesPageState extends State<QuickNotesPage> {
   }
 
   Future<void> _stopPlayback({bool resetState = true}) async {
-    _stopPlaybackTicker();
     try {
       await _player.stop();
     } catch (_) {}
@@ -347,54 +353,22 @@ class QuickNotesPageState extends State<QuickNotesPage> {
       _playingNoteId = null;
       _playbackPosition = Duration.zero;
       _playbackDuration = Duration.zero;
-      _playbackStartedAt = null;
     });
-  }
-
-  void _startPlaybackTicker() {
-    _stopPlaybackTicker();
-    _playbackTicker = Timer.periodic(const Duration(milliseconds: 200), (
-      timer,
-    ) async {
-      if (!mounted || _playingNoteId == null) {
-        _stopPlaybackTicker();
-        return;
-      }
-      final startedAt = _playbackStartedAt;
-      if (startedAt == null) {
-        _stopPlaybackTicker();
-        return;
-      }
-      final elapsed = DateTime.now().difference(startedAt);
-      final cappedPosition =
-          _playbackDuration > Duration.zero && elapsed > _playbackDuration
-          ? _playbackDuration
-          : elapsed;
-      if (cappedPosition == _playbackPosition) {
-        return;
-      }
-      setState(() {
-        _playbackPosition = cappedPosition;
-      });
-    });
-  }
-
-  void _stopPlaybackTicker() {
-    _playbackTicker?.cancel();
-    _playbackTicker = null;
   }
 
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: _refreshNotes,
-      child: ListView(
+        child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           if (_loading)
-            const Padding(
-              padding: EdgeInsets.only(top: 40),
-              child: Center(child: CircularProgressIndicator()),
+            const _QuickNotesLoadingState()
+          else if (_loadError != null)
+            _QuickNotesErrorState(
+              message: _loadError!,
+              onRetry: _refreshNotes,
             )
           else if (_notes.isEmpty)
             const _QuickNotesEmptyState()
@@ -967,6 +941,9 @@ class _WaveformView extends StatelessWidget {
 }
 
 class _QuickNoteCard extends StatelessWidget {
+  static const double _actionSlotWidth = 40;
+  static const double _actionButtonSize = 32;
+
   const _QuickNoteCard({
     required this.note,
     required this.isPlaying,
@@ -1013,10 +990,18 @@ class _QuickNoteCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                IconButton(
-                  onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline_rounded),
-                  tooltip: '删除闪念',
+                SizedBox(
+                  width: _actionSlotWidth,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      onPressed: onDelete,
+                      icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                      tooltip: '删除闪念',
+                      visualDensity: VisualDensity.compact,
+                      splashRadius: 20,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -1040,98 +1025,113 @@ class _QuickNoteCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 onTap: onPlay,
                 child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: isPlaying
-                          ? const [Color(0xFFE5F4F0), Color(0xFFF4FBF8)]
-                          : const [Color(0xFFF5F7F6), Color(0xFFF0F4F2)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isPlaying
-                          ? const Color(0xFF7AB8A1)
-                          : const Color(0xFFDCE6E1),
-                    ),
-                  ),
+                  padding: EdgeInsets.zero,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(
-                        height: 52,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: _AudioWaveformStrip(
-                                samples: note.waveformSamples,
-                                progress: progress,
-                                active: isPlaying,
+                      Row(
+                        children: [
+                          const Spacer(),
+                          SizedBox(
+                            width: _actionSlotWidth,
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: Container(
+                                width: _actionButtonSize,
+                                height: _actionButtonSize,
+                                decoration: BoxDecoration(
+                                  color: isPlaying
+                                      ? const Color(0xFF1D7F5F)
+                                      : const Color(0xFFE4ECE8),
+                                  borderRadius: BorderRadius.circular(
+                                    _actionButtonSize / 2,
+                                  ),
+                                ),
+                                child: Icon(
+                                  isPlaying
+                                      ? Icons.stop_rounded
+                                      : Icons.play_arrow_rounded,
+                                  size: 18,
+                                  color: isPlaying
+                                      ? Colors.white
+                                      : const Color(0xFF35584C),
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            SizedBox(
-                              width: 48,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    width: 32,
-                                    height: 32,
-                                    decoration: BoxDecoration(
-                                      color: isPlaying
-                                          ? const Color(0xFF1D7F5F)
-                                          : const Color(0xFFE4ECE8),
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Icon(
-                                      isPlaying
-                                          ? Icons.stop_rounded
-                                          : Icons.play_arrow_rounded,
-                                      size: 18,
-                                      color: isPlaying
-                                          ? Colors.white
-                                          : const Color(0xFF35584C),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    isPlaying
-                                        ? _formatDuration(playbackPosition)
-                                        : (note.audioDurationMillis == null
-                                              ? '--:--'
-                                              : _formatStaticDuration(
-                                                  note.audioDurationMillis!,
-                                                )),
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          color: const Color(0xFF60716B),
-                                          fontWeight: isPlaying
-                                              ? FontWeight.w600
-                                              : null,
-                                          height: 1,
-                                        ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 10),
-                      if (isPlaying)
-                        Text(
-                          '播放进度 ${_formatDuration(playbackPosition)} / ${_formatDuration(totalDuration)}',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: const Color(0xFF60716B),
-                                fontWeight: FontWeight.w600,
-                                fontSize: 11,
-                              ),
-                        ),
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment.topCenter,
+                        child: isPlaying
+                            ? Container(
+                                margin: const EdgeInsets.only(top: 12),
+                                padding: const EdgeInsets.fromLTRB(0, 12, 0, 10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFFFFF),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFFDCE6E1),
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x0F17362C),
+                                      blurRadius: 12,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Center(
+                                      child: Container(
+                                        width: 28,
+                                        height: 4,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFD9E4DF),
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      child: _AudioWaveformStrip(
+                                        samples: note.waveformSamples,
+                                        progress: progress,
+                                        active: true,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      child: Text(
+                                        '播放进度 ${_formatDuration(playbackPosition)} / ${_formatDuration(totalDuration)}',
+                                        textAlign: TextAlign.center,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: const Color(0xFF60716B),
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 11,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
                     ],
                   ),
                 ),
@@ -1147,11 +1147,6 @@ class _QuickNoteCard extends StatelessWidget {
     final minutes = duration.inMinutes;
     final seconds = duration.inSeconds % 60;
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
-
-  static String _formatStaticDuration(int durationMillis) {
-    final duration = Duration(milliseconds: durationMillis);
-    return _formatDuration(duration);
   }
 }
 
@@ -1170,7 +1165,7 @@ class _AudioWaveformStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final bars = _normalizedBars(samples);
     return SizedBox(
-      height: 32,
+      height: 24,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -1182,7 +1177,7 @@ class _AudioWaveformStrip extends StatelessWidget {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOut,
-                  height: 6 + (bars[index] * 14),
+                  height: 4 + (bars[index] * 10),
                   decoration: BoxDecoration(
                     color: _barColor((index + 1) / bars.length),
                     borderRadius: BorderRadius.circular(999),
@@ -1265,6 +1260,200 @@ class _QuickNotesEmptyState extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _QuickNotesErrorState extends StatelessWidget {
+  const _QuickNotesErrorState({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.cloud_off_rounded,
+              size: 42,
+              color: Color(0xFF60716B),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '闪念加载失败',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF60716B)),
+            ),
+            const SizedBox(height: 14),
+            FilledButton.tonal(
+              onPressed: () => unawaited(onRetry()),
+              child: const Text('重新加载'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickNotesLoadingState extends StatelessWidget {
+  const _QuickNotesLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        children: const [
+          _QuickNoteSkeletonCard(),
+          SizedBox(height: 12),
+          _QuickNoteSkeletonCard(),
+          SizedBox(height: 12),
+          _QuickNoteSkeletonCard(),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickNoteSkeletonCard extends StatelessWidget {
+  const _QuickNoteSkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            _QuickNoteSkeletonBar(widthFactor: 0.24, height: 14),
+            SizedBox(height: 16),
+            _QuickNoteSkeletonBar(widthFactor: 0.78, height: 18),
+            SizedBox(height: 10),
+            _QuickNoteSkeletonBar(widthFactor: 0.56, height: 18),
+            SizedBox(height: 14),
+            _QuickNoteSkeletonAudioBlock(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickNoteSkeletonAudioBlock extends StatelessWidget {
+  const _QuickNoteSkeletonAudioBlock();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 62,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F6F5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE0E8E4)),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Column(
+          children: [
+            Expanded(child: _QuickNoteSkeletonBar(widthFactor: 1, height: 18)),
+            SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _QuickNoteSkeletonBar(widthFactor: 0.26, height: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickNoteSkeletonBar extends StatelessWidget {
+  const _QuickNoteSkeletonBar({required this.widthFactor, required this.height});
+
+  final double widthFactor;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      widthFactor: widthFactor,
+      alignment: Alignment.centerLeft,
+      child: _BreathingPlaceholder(
+        borderRadius: BorderRadius.circular(999),
+        child: SizedBox(height: height),
+      ),
+    );
+  }
+}
+
+class _BreathingPlaceholder extends StatefulWidget {
+  const _BreathingPlaceholder({
+    required this.child,
+    required this.borderRadius,
+  });
+
+  final Widget child;
+  final BorderRadius borderRadius;
+
+  @override
+  State<_BreathingPlaceholder> createState() => _BreathingPlaceholderState();
+}
+
+class _BreathingPlaceholderState extends State<_BreathingPlaceholder>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      child: widget.child,
+      builder: (context, child) {
+        final progress = _controller.value;
+        final begin = Alignment(-1.8 + (2.6 * progress), 0);
+        final end = Alignment(-0.8 + (2.6 * progress), 0);
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: widget.borderRadius,
+            gradient: LinearGradient(
+              begin: begin,
+              end: end,
+              colors: const [
+                Color(0xFFE3ECE8),
+                Color(0xFFF5F9F7),
+                Color(0xFFE3ECE8),
+              ],
+              stops: const [0.1, 0.5, 0.9],
+            ),
+          ),
+          child: child,
+        );
+      },
     );
   }
 }

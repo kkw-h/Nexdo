@@ -162,11 +162,17 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
         : '${dateFormatter.format(_selectedDateTime)} · 全天';
 
     final formContent = Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
       child: Form(
         key: _formKey,
         child: ListView(
           children: [
+            _ReminderFormHeroCard(
+              isEditing: _isEditing,
+              summaryLabel: summaryLabel,
+              hasSpecificTime: _hasSpecificTime,
+            ),
+            const SizedBox(height: 16),
             TextFormField(
               controller: _titleController,
               decoration: const InputDecoration(
@@ -605,9 +611,12 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
               ),
             ],
             const SizedBox(height: 20),
-            FilledButton(
-              onPressed: _submit,
-              child: Text(_isEditing ? '保存修改' : '创建提醒'),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _submit,
+                child: Text(_isEditing ? '保存修改' : '创建提醒'),
+              ),
             ),
           ],
         ),
@@ -626,33 +635,42 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
 
     return Scaffold(
       appBar: AppBar(title: Text(_isEditing ? '编辑提醒' : '新建提醒')),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            formBody,
-            if (showKeyboardToolbar)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: _KeyboardAccessoryBar(
-                  onNext: _hourFocusNode.hasFocus
-                      ? () {
-                          _normalizeHourInput();
-                          _focusMinuteField();
-                        }
-                      : null,
-                  onDone: () {
-                    if (_minuteFocusNode.hasFocus) {
-                      _normalizeMinuteInput();
-                    } else if (_hourFocusNode.hasFocus) {
-                      _normalizeHourInput();
-                    }
-                    _dismissKeyboard();
-                  },
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFE4EEE6), Color(0xFFF7F4EC)],
+          ),
+        ),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              formBody,
+              if (showKeyboardToolbar)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _KeyboardAccessoryBar(
+                    onNext: _hourFocusNode.hasFocus
+                        ? () {
+                            _normalizeHourInput();
+                            _focusMinuteField();
+                          }
+                        : null,
+                    onDone: () {
+                      if (_minuteFocusNode.hasFocus) {
+                        _normalizeMinuteInput();
+                      } else if (_hourFocusNode.hasFocus) {
+                        _normalizeHourInput();
+                      }
+                      _dismissKeyboard();
+                    },
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -920,6 +938,58 @@ class _QuickDateTimeOption {
 
   final String label;
   final DateTime value;
+}
+
+class _ReminderFormHeroCard extends StatelessWidget {
+  const _ReminderFormHeroCard({
+    required this.isEditing,
+    required this.summaryLabel,
+    required this.hasSpecificTime,
+  });
+
+  final bool isEditing;
+  final String summaryLabel;
+  final bool hasSpecificTime;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFCF7),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE4EAE4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isEditing ? 'EDIT REMINDER' : 'NEW REMINDER',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: const Color(0xFFE58A3A),
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isEditing ? '调整提醒细节和时间' : '创建一条新的提醒',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF16322C),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            hasSpecificTime ? summaryLabel : '$summaryLabel，不设置具体时刻',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF60716B)),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _DateTimeEditorCard extends StatelessWidget {

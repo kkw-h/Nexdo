@@ -218,6 +218,12 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
           _buildProfileView(controller),
         ];
         final titles = ['今日', '清单', '闪念', '我的'];
+        final subtitles = [
+          '按时间处理今天的提醒，保持节奏清晰。',
+          '默认聚焦未完成事项，也支持组合查询。',
+          '随手记录想法、语音和短文本，不打断当前任务。',
+          '管理账号、设备与提醒工作区配置。',
+        ];
         final fabLabel = _selectedNavIndex == 2 ? '闪念' : '新建';
         final fabIcon = _selectedNavIndex == 2
             ? Icons.bolt_rounded
@@ -257,82 +263,98 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                         child: compactFab,
                       )
                     : compactFab),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: _selectedNavIndex,
-            onDestinationSelected: (index) {
-              setState(() {
-                _selectedNavIndex = index;
-              });
-              unawaited(_refreshForNavIndex(index, controller));
-            },
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.today_outlined),
-                selectedIcon: Icon(Icons.today_rounded),
-                label: '今日',
+          bottomNavigationBar: DecoratedBox(
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFFCF7),
+              border: Border(top: BorderSide(color: Color(0xFFE4EAE4))),
+            ),
+            child: SafeArea(
+              top: false,
+              child: NavigationBar(
+                selectedIndex: _selectedNavIndex,
+                onDestinationSelected: (index) {
+                  setState(() {
+                    _selectedNavIndex = index;
+                  });
+                  unawaited(_refreshForNavIndex(index, controller));
+                },
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.today_outlined),
+                    selectedIcon: Icon(Icons.today_rounded),
+                    label: '今日',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.view_list_outlined),
+                    selectedIcon: Icon(Icons.view_list_rounded),
+                    label: '清单',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.bolt_outlined),
+                    selectedIcon: Icon(Icons.bolt_rounded),
+                    label: '闪念',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.person_outline_rounded),
+                    selectedIcon: Icon(Icons.person_rounded),
+                    label: '我的',
+                  ),
+                ],
               ),
-              NavigationDestination(
-                icon: Icon(Icons.view_list_outlined),
-                selectedIcon: Icon(Icons.view_list_rounded),
-                label: '清单',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.bolt_outlined),
-                selectedIcon: Icon(Icons.bolt_rounded),
-                label: '闪念',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.person_outline_rounded),
-                selectedIcon: Icon(Icons.person_rounded),
-                label: '我的',
-              ),
-            ],
+            ),
           ),
           body: DecoratedBox(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFFDCEEE6), Color(0xFFF5F7F2)],
+                colors: [Color(0xFFE4EEE6), Color(0xFFF7F4EC)],
               ),
             ),
             child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _TopBar(
-                      title: titles[_selectedNavIndex],
-                      onOpenCalendar: () => _openCalendarPage(controller),
-                      showCalendarButton:
-                          _selectedNavIndex == 0 || _selectedNavIndex == 1,
-                      onRefresh: _selectedNavIndex == 0
-                          ? () => _refreshData(controller)
-                          : null,
-                      isRefreshing: _selectedNavIndex == 0
-                          ? _refreshing
-                          : false,
-                      refreshCountdownLabel: _selectedNavIndex == 0
-                          ? _countdownLabel()
-                          : null,
-                      customTrailing: _selectedNavIndex == 2
-                          ? _QuickNotesStatusButton(
-                              diagnostics: _quickNotesDiagnostics,
-                              onPressed: _quickNotesPageKey
-                                  .currentState
-                                  ?.refreshDiagnostics,
-                            )
-                          : null,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _TopBar(
+                          title: titles[_selectedNavIndex],
+                          subtitle: subtitles[_selectedNavIndex],
+                          onOpenCalendar: () => _openCalendarPage(controller),
+                          showCalendarButton:
+                              _selectedNavIndex == 0 || _selectedNavIndex == 1,
+                          onRefresh: _selectedNavIndex == 0
+                              ? () => _refreshData(controller)
+                              : null,
+                          isRefreshing: _selectedNavIndex == 0
+                              ? _refreshing
+                              : false,
+                          refreshCountdownLabel: _selectedNavIndex == 0
+                              ? _countdownLabel()
+                              : null,
+                          customTrailing: _selectedNavIndex == 2
+                              ? _QuickNotesStatusButton(
+                                  diagnostics: _quickNotesDiagnostics,
+                                  onPressed: _quickNotesPageKey
+                                      .currentState
+                                      ?.refreshDiagnostics,
+                                )
+                              : null,
+                        ),
+                        const SizedBox(height: 18),
+                        Expanded(
+                          child: IndexedStack(
+                            index: _selectedNavIndex,
+                            children: pages,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    Expanded(
-                      child: IndexedStack(
-                        index: _selectedNavIndex,
-                        children: pages,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -738,6 +760,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     List<ReminderItem> todayItems,
   ) {
     final orderedItems = _sortReminders(todayItems);
+    final pendingCount = orderedItems.where((item) => !item.isCompleted).length;
 
     return RefreshIndicator(
       onRefresh: () => _refreshData(controller),
@@ -747,13 +770,15 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  '今日任务',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                child: _OverviewHeroCard(
+                  eyebrow: 'TODAY',
+                  title: '$pendingCount 条待处理',
+                  subtitle: orderedItems.isEmpty
+                      ? '今天还没有排程，先加一条提醒开始。'
+                      : '按时间顺序梳理今天最重要的事项。',
                 ),
               ),
+              const SizedBox(width: 12),
               _SortButton(
                 mode: _sortMode,
                 onChanged: (mode) {
@@ -764,18 +789,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          if (orderedItems.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: Text(
-                '${orderedItems.where((item) => !item.isCompleted).length} 条待处理',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF60716B),
-                ),
-              ),
-            ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 16),
           if (orderedItems.isEmpty)
             const _EmptyPanel(title: '今天还没有排程', subtitle: '加一条提醒，时间线就会按顺序展示出来。')
           else
@@ -819,20 +833,21 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     return ListView(
       children: [
         Card(
+          color: const Color(0xFF173A33),
           child: Padding(
             padding: const EdgeInsets.all(18),
             child: Row(
               children: [
                 CircleAvatar(
                   radius: 28,
-                  backgroundColor: const Color(0xFFDCEEE6),
+                  backgroundColor: const Color(0xFFE5B87A),
                   child: Text(
                     widget.currentUser.name.trim().isEmpty
                         ? 'N'
                         : widget.currentUser.name.trim()[0].toUpperCase(),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF126A5A),
+                      color: const Color(0xFF173A33),
                     ),
                   ),
                 ),
@@ -844,13 +859,16 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                       Text(
                         widget.currentUser.name,
                         style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
+                            ?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         widget.currentUser.email,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: const Color(0xFF60716B),
+                          color: const Color(0xFFC4D4CC),
                         ),
                       ),
                     ],
@@ -860,6 +878,10 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                   onPressed: () async {
                     await widget.onLogout();
                   },
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFFFE6CF),
+                    backgroundColor: const Color(0x26FFFFFF),
+                  ),
                   icon: const Icon(Icons.logout_rounded),
                   label: const Text('退出'),
                 ),
@@ -1079,6 +1101,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.title,
+    required this.subtitle,
     required this.onOpenCalendar,
     required this.showCalendarButton,
     required this.onRefresh,
@@ -1088,6 +1111,7 @@ class _TopBar extends StatelessWidget {
   });
 
   final String title;
+  final String subtitle;
   final VoidCallback onOpenCalendar;
   final bool showCalendarButton;
   final VoidCallback? onRefresh;
@@ -1100,52 +1124,81 @@ class _TopBar extends StatelessWidget {
     final countdownText = refreshCountdownLabel == null
         ? '刷新'
         : '刷新 · $refreshCountdownLabel';
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-          ),
-        ),
-        if (customTrailing != null)
-          customTrailing!
-        else if (onRefresh != null)
-          TextButton.icon(
-            onPressed: isRefreshing ? null : onRefresh,
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              foregroundColor: const Color(0xFF126A5A),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(999),
-                side: const BorderSide(color: Color(0xFFDCE6E1)),
-              ),
-            ),
-            icon: isRefreshing
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.refresh_rounded, size: 16),
-            label: Text(
-              countdownText,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 14, 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFCF7),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFE4EAE4)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF16322C),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: const Color(0xFF60716B),
+                  ),
+                ),
+              ],
             ),
           ),
-        if (showCalendarButton)
-          Padding(
-            padding: const EdgeInsets.only(left: 8),
-            child: IconButton.filledTonal(
-              onPressed: onOpenCalendar,
-              icon: const Icon(Icons.calendar_month_rounded),
-            ),
+          const SizedBox(width: 12),
+          Column(
+            children: [
+              if (customTrailing != null)
+                customTrailing!
+              else if (onRefresh != null)
+                TextButton.icon(
+                  onPressed: isRefreshing ? null : onRefresh,
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 44),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    foregroundColor: const Color(0xFF126A5A),
+                    backgroundColor: const Color(0xFFF1F6F3),
+                  ),
+                  icon: isRefreshing
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded, size: 16),
+                  label: Text(
+                    countdownText,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              if (showCalendarButton)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: IconButton.filledTonal(
+                    onPressed: onOpenCalendar,
+                    icon: const Icon(Icons.calendar_month_rounded),
+                  ),
+                ),
+            ],
           ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1193,8 +1246,12 @@ class _QuickNotesStatusButton extends StatelessWidget {
     return TextButton.icon(
       onPressed: onPressed,
       style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        minimumSize: const Size(0, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         foregroundColor: foreground,
+        backgroundColor: allHealthy
+            ? const Color(0xFFF1F6F3)
+            : const Color(0xFFFFF3EE),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(999),
           side: BorderSide(color: border),
@@ -1240,9 +1297,11 @@ class _SortButton extends StatelessWidget {
             .toList();
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        constraints: const BoxConstraints(minHeight: 44),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
+          color: const Color(0xFFFFFCF7),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: const Color(0xFFE0E6E3)),
         ),
         child: Row(
@@ -1271,17 +1330,32 @@ class _MetricMini extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 4),
-        Text(label),
-      ],
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFCF7),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE4EAE4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF16322C),
+            ),
+          ),
+          const Spacer(),
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF60716B)),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2450,12 +2524,25 @@ class _EmptyPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      color: const Color(0xFFFFFCF7),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
         child: Column(
           children: [
-            const Icon(Icons.notifications_none_rounded, size: 42),
-            const SizedBox(height: 12),
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE7F0EA),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(
+                Icons.notifications_none_rounded,
+                size: 30,
+                color: Color(0xFF126A5A),
+              ),
+            ),
+            const SizedBox(height: 16),
             Text(
               title,
               style: Theme.of(
@@ -2551,16 +2638,9 @@ class _InboxQueryEmptyState extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 640),
         padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
         decoration: BoxDecoration(
-          color: const Color(0xFFF4F7F3),
+          color: const Color(0xFFFFFCF7),
           borderRadius: BorderRadius.circular(28),
           border: Border.all(color: const Color(0xFFD6E4DC)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 18,
-              offset: Offset(0, 10),
-            ),
-          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2660,6 +2740,58 @@ class _InboxQueryEmptyState extends StatelessWidget {
   }
 }
 
+class _OverviewHeroCard extends StatelessWidget {
+  const _OverviewHeroCard({
+    required this.eyebrow,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String eyebrow;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFCF7),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE4EAE4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            eyebrow,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: const Color(0xFFE58A3A),
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: const Color(0xFF16322C),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF60716B)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DataOverviewPage extends StatelessWidget {
   const _DataOverviewPage({required this.controller});
 
@@ -2684,87 +2816,73 @@ class _DataOverviewPage extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(title: const Text('数据概览')),
-          body: SafeArea(
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _MetricMini(
-                                label: '全部提醒',
-                                value: '${reminders.length}',
-                              ),
-                            ),
-                            Expanded(
-                              child: _MetricMini(
-                                label: '待办',
-                                value: '$pending',
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _MetricMini(label: '今日', value: '$today'),
-                            ),
-                            Expanded(
-                              child: _MetricMini(
-                                label: '逾期',
-                                value: '$overdue',
-                              ),
-                            ),
-                            Expanded(
-                              child: _MetricMini(
-                                label: '已完成',
-                                value: '$completed',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+          body: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFE4EEE6), Color(0xFFF7F4EC)],
+              ),
+            ),
+            child: SafeArea(
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _OverviewHeroCard(
+                    eyebrow: 'OVERVIEW',
+                    title: '${reminders.length} 条提醒在系统中',
+                    subtitle: '快速查看待办、逾期、今日和通知配置的整体分布。',
+                  ),
+                  const SizedBox(height: 16),
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 1.28,
+                    children: [
+                      _MetricMini(label: '全部提醒', value: '${reminders.length}'),
+                      _MetricMini(label: '待办', value: '$pending'),
+                      _MetricMini(label: '今日', value: '$today'),
+                      _MetricMini(label: '逾期', value: '$overdue'),
+                      _MetricMini(label: '已完成', value: '$completed'),
+                      _MetricMini(label: '开启通知', value: '$notifications'),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '数据详情',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 14),
+                          _InfoRow(
+                            label: '任务清单',
+                            value: '${controller.lists.length}',
+                          ),
+                          _InfoRow(
+                            label: '分组',
+                            value: '${controller.groups.length}',
+                          ),
+                          _InfoRow(
+                            label: '标签',
+                            value: '${controller.tags.length}',
+                          ),
+                          _InfoRow(label: '循环提醒', value: '$repeatCount'),
+                          _InfoRow(label: '开启通知', value: '$notifications'),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '数据详情',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        const SizedBox(height: 14),
-                        _InfoRow(
-                          label: '任务清单',
-                          value: '${controller.lists.length}',
-                        ),
-                        _InfoRow(
-                          label: '分组',
-                          value: '${controller.groups.length}',
-                        ),
-                        _InfoRow(
-                          label: '标签',
-                          value: '${controller.tags.length}',
-                        ),
-                        _InfoRow(label: '循环提醒', value: '$repeatCount'),
-                        _InfoRow(label: '开启通知', value: '$notifications'),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -2790,135 +2908,141 @@ class _WorkspaceManagerPageState extends State<_WorkspaceManagerPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('任务清单与设置')),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-          child: AnimatedBuilder(
-            animation: widget.controller,
-            builder: (context, _) {
-              final lists = _sortedLists();
-              final groups = _sortedGroups();
-              return ListView(
-                children: [
-                  Text(
-                    '任务清单 / 分组 / 标签',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFE4EEE6), Color(0xFFF7F4EC)],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+            child: AnimatedBuilder(
+              animation: widget.controller,
+              builder: (context, _) {
+                final lists = _sortedLists();
+                final groups = _sortedGroups();
+                return ListView(
+                  children: [
+                    const _OverviewHeroCard(
+                      eyebrow: 'WORKSPACE',
+                      title: '统一管理清单、分组和标签',
+                      subtitle: '这里的调整会直接影响提醒的归类、查询和展示方式。',
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '统一管理任务清单、分组和标签，修改后会和当前数据结构保持同步。',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 18),
-                  _ManagerSection(
-                    title: '任务清单',
-                    items: lists
-                        .map(
-                          (item) => _ManagerItem(
-                            id: item.id,
-                            label: item.name,
-                            onEdit: () => _promptNameDialog(
-                              context: context,
-                              title: '重命名任务清单',
-                              initialValue: item.name,
-                              onSubmit: (name) =>
-                                  widget.controller.renameList(item, name),
+                    const SizedBox(height: 16),
+                    _ManagerSection(
+                      title: '任务清单',
+                      subtitle: '决定提醒属于哪个主要工作域。',
+                      items: lists
+                          .map(
+                            (item) => _ManagerItem(
+                              id: item.id,
+                              label: item.name,
+                              onEdit: () => _promptNameDialog(
+                                context: context,
+                                title: '重命名任务清单',
+                                initialValue: item.name,
+                                onSubmit: (name) =>
+                                    widget.controller.renameList(item, name),
+                              ),
+                              onDelete: () => _confirmDelete(
+                                context: context,
+                                message:
+                                    '删除清单后归属其中的提醒将暂时移至“全部提醒”视图并等待下一次同步处理，你确定要继续吗？',
+                                onConfirm: () =>
+                                    widget.controller.deleteList(item.id),
+                              ),
                             ),
-                            onDelete: () => _confirmDelete(
-                              context: context,
-                              message:
-                                  '删除清单后归属其中的提醒将暂时移至“全部提醒”视图并等待下一次同步处理，你确定要继续吗？',
-                              onConfirm: () =>
-                                  widget.controller.deleteList(item.id),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    emptyHint: '还没有清单，点击右上角加号新建。',
-                    reorderable: true,
-                    isProcessing: _listsOrdering,
-                    onReorder: _onListReorder,
-                    onAdd: () => _promptNameDialog(
-                      context: context,
-                      title: '新建任务清单',
-                      onSubmit: (name) =>
-                          widget.controller.createList(name, 0xFF126A5A),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _ManagerSection(
-                    title: '分组',
-                    items: groups
-                        .map(
-                          (item) => _ManagerItem(
-                            id: item.id,
-                            label: item.name,
-                            onEdit: () => _promptNameDialog(
-                              context: context,
-                              title: '重命名分组',
-                              initialValue: item.name,
-                              onSubmit: (name) =>
-                                  widget.controller.renameGroup(item, name),
-                            ),
-                            onDelete: () => _confirmDelete(
-                              context: context,
-                              message: '删除分组仅影响展示，不会移除提醒。',
-                              onConfirm: () =>
-                                  widget.controller.deleteGroup(item.id),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    emptyHint: '可以把“高优先级”“例行事项”拆成不同分组。',
-                    reorderable: true,
-                    isProcessing: _groupsOrdering,
-                    onReorder: _onGroupReorder,
-                    onAdd: () => _promptNameDialog(
-                      context: context,
-                      title: '新建分组',
-                      onSubmit: (name) => widget.controller.createGroup(
-                        name,
-                        Icons.folder.codePoint,
+                          )
+                          .toList(),
+                      emptyHint: '还没有清单，点击右上角加号新建。',
+                      reorderable: true,
+                      isProcessing: _listsOrdering,
+                      onReorder: _onListReorder,
+                      onAdd: () => _promptNameDialog(
+                        context: context,
+                        title: '新建任务清单',
+                        onSubmit: (name) =>
+                            widget.controller.createList(name, 0xFF126A5A),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  _ManagerSection(
-                    title: '标签',
-                    items: widget.controller.tags
-                        .map(
-                          (item) => _ManagerItem(
-                            id: item.id,
-                            label: '#${item.name}',
-                            onEdit: () => _promptNameDialog(
-                              context: context,
-                              title: '重命名标签',
-                              initialValue: item.name,
-                              onSubmit: (name) =>
-                                  widget.controller.renameTag(item, name),
+                    const SizedBox(height: 14),
+                    _ManagerSection(
+                      title: '分组',
+                      subtitle: '帮助你进一步组织同类提醒。',
+                      items: groups
+                          .map(
+                            (item) => _ManagerItem(
+                              id: item.id,
+                              label: item.name,
+                              onEdit: () => _promptNameDialog(
+                                context: context,
+                                title: '重命名分组',
+                                initialValue: item.name,
+                                onSubmit: (name) =>
+                                    widget.controller.renameGroup(item, name),
+                              ),
+                              onDelete: () => _confirmDelete(
+                                context: context,
+                                message: '删除分组仅影响展示，不会移除提醒。',
+                                onConfirm: () =>
+                                    widget.controller.deleteGroup(item.id),
+                              ),
                             ),
-                            onDelete: () => _confirmDelete(
-                              context: context,
-                              message: '确认删除标签 ${item.name} 吗？',
-                              onConfirm: () =>
-                                  widget.controller.deleteTag(item.id),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    emptyHint: '给提醒加上 #深度工作、#家庭 等标签以便筛选。',
-                    onAdd: () => _promptNameDialog(
-                      context: context,
-                      title: '新建标签',
-                      onSubmit: (name) =>
-                          widget.controller.createTag(name, 0xFF6B5FB3),
+                          )
+                          .toList(),
+                      emptyHint: '可以把“高优先级”“例行事项”拆成不同分组。',
+                      reorderable: true,
+                      isProcessing: _groupsOrdering,
+                      onReorder: _onGroupReorder,
+                      onAdd: () => _promptNameDialog(
+                        context: context,
+                        title: '新建分组',
+                        onSubmit: (name) => widget.controller.createGroup(
+                          name,
+                          Icons.folder.codePoint,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
-              );
-            },
+                    const SizedBox(height: 14),
+                    _ManagerSection(
+                      title: '标签',
+                      subtitle: '用于交叉标记和快速筛选。',
+                      items: widget.controller.tags
+                          .map(
+                            (item) => _ManagerItem(
+                              id: item.id,
+                              label: '#${item.name}',
+                              onEdit: () => _promptNameDialog(
+                                context: context,
+                                title: '重命名标签',
+                                initialValue: item.name,
+                                onSubmit: (name) =>
+                                    widget.controller.renameTag(item, name),
+                              ),
+                              onDelete: () => _confirmDelete(
+                                context: context,
+                                message: '确认删除标签 ${item.name} 吗？',
+                                onConfirm: () =>
+                                    widget.controller.deleteTag(item.id),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      emptyHint: '给提醒加上 #深度工作、#家庭 等标签以便筛选。',
+                      onAdd: () => _promptNameDialog(
+                        context: context,
+                        title: '新建标签',
+                        onSubmit: (name) =>
+                            widget.controller.createTag(name, 0xFF6B5FB3),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -3008,13 +3132,26 @@ class _WorkspaceManagerPageState extends State<_WorkspaceManagerPage> {
           builder: (context, setDialogState) {
             return AlertDialog(
               title: Text(title),
-              content: TextField(
-                controller: controller,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: '请输入名称',
-                  errorText: errorText,
-                ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '名称会立即同步到当前工作区。',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF60716B),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: '请输入名称',
+                      errorText: errorText,
+                    ),
+                  ),
+                ],
               ),
               actions: [
                 TextButton(
@@ -3286,6 +3423,7 @@ String _dateKey(DateTime date) {
 class _ManagerSection extends StatelessWidget {
   const _ManagerSection({
     required this.title,
+    required this.subtitle,
     required this.items,
     required this.emptyHint,
     required this.onAdd,
@@ -3295,6 +3433,7 @@ class _ManagerSection extends StatelessWidget {
   });
 
   final String title;
+  final String subtitle;
   final List<_ManagerItem> items;
   final String emptyHint;
   final VoidCallback onAdd;
@@ -3315,15 +3454,23 @@ class _ManagerSection extends StatelessWidget {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const Spacer(),
-                IconButton(
+                TextButton.icon(
                   onPressed: onAdd,
-                  icon: const Icon(Icons.add_circle_outline_rounded),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('新增'),
                 ),
               ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF60716B)),
             ),
             const SizedBox(height: 10),
             if (items.isEmpty)
@@ -3331,8 +3478,9 @@ class _ManagerSection extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF5F7F6),
+                  color: const Color(0xFFF7FAF8),
                   borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE1E9E4)),
                 ),
                 child: Row(
                   children: [
@@ -3369,12 +3517,23 @@ class _ManagerSection extends StatelessWidget {
               )
             else
               ...items.map(
-                (item) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(item.label),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
+                (item) => Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7FAF8),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE1E9E4)),
+                  ),
+                  child: Row(
                     children: [
+                      Expanded(
+                        child: Text(
+                          item.label,
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
                       IconButton(
                         tooltip: '编辑',
                         onPressed: item.onEdit,
@@ -3383,6 +3542,7 @@ class _ManagerSection extends StatelessWidget {
                       IconButton(
                         tooltip: '删除',
                         onPressed: item.onDelete,
+                        color: const Color(0xFFB85C38),
                         icon: const Icon(Icons.delete_outline),
                       ),
                     ],
@@ -3437,13 +3597,25 @@ class _ReorderableList extends StatelessWidget {
       },
       itemBuilder: (context, index) {
         final item = items[index];
-        return ListTile(
+        return Container(
           key: ValueKey(item.id),
-          contentPadding: EdgeInsets.zero,
-          title: Text(item.label),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7FAF8),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE1E9E4)),
+          ),
+          child: Row(
             children: [
+              Expanded(
+                child: Text(
+                  item.label,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
               IconButton(
                 tooltip: '编辑',
                 onPressed: item.onEdit,
@@ -3452,6 +3624,7 @@ class _ReorderableList extends StatelessWidget {
               IconButton(
                 tooltip: '删除',
                 onPressed: item.onDelete,
+                color: const Color(0xFFB85C38),
                 icon: const Icon(Icons.delete_outline),
               ),
               const SizedBox(width: 4),

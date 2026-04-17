@@ -268,6 +268,54 @@ class ReminderTag {
   }
 }
 
+class ReminderCompletionLog {
+  const ReminderCompletionLog({
+    required this.id,
+    required this.reminderId,
+    required this.completedAt,
+    this.originalDueAt,
+    this.nextDueAt,
+    this.createdAt,
+  });
+
+  final String id;
+  final String reminderId;
+  final DateTime completedAt;
+  final DateTime? originalDueAt;
+  final DateTime? nextDueAt;
+  final DateTime? createdAt;
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'reminderId': reminderId,
+      'completedAt': completedAt.toIso8601String(),
+      'originalDueAt': originalDueAt?.toIso8601String(),
+      'nextDueAt': nextDueAt?.toIso8601String(),
+      'createdAt': createdAt?.toIso8601String(),
+    };
+  }
+
+  factory ReminderCompletionLog.fromMap(Map<String, dynamic> map) {
+    DateTime? parseNullable(String key) {
+      final value = map[key] as String?;
+      if (value == null || value.isEmpty) {
+        return null;
+      }
+      return DateTime.parse(value);
+    }
+
+    return ReminderCompletionLog(
+      id: map['id'] as String,
+      reminderId: map['reminderId'] as String,
+      completedAt: DateTime.parse(map['completedAt'] as String),
+      originalDueAt: parseNullable('originalDueAt'),
+      nextDueAt: parseNullable('nextDueAt'),
+      createdAt: parseNullable('createdAt'),
+    );
+  }
+}
+
 class ReminderItem {
   const ReminderItem({
     required this.id,

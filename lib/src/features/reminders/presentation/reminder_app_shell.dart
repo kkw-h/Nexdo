@@ -237,18 +237,15 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
           icon: Icon(fabIcon, size: 18),
           label: Text(
             fabLabel,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
         );
-        final compactFab = SizedBox(
-          height: 44,
-          child: fab,
-        );
+        final compactFab = SizedBox(height: 44, child: fab);
 
         return Scaffold(
           floatingActionButton: _selectedNavIndex == 3
@@ -665,13 +662,12 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                                       context: context,
                                       isScrollControlled: true,
                                       useSafeArea: true,
-                                      builder: (context) =>
-                                          _ReminderQuerySheet(
-                                            initialQuery: _inboxQuery,
-                                            lists: controller.lists,
-                                            groups: controller.groups,
-                                            tags: controller.tags,
-                                          ),
+                                      builder: (context) => _ReminderQuerySheet(
+                                        initialQuery: _inboxQuery,
+                                        lists: controller.lists,
+                                        groups: controller.groups,
+                                        tags: controller.tags,
+                                      ),
                                     );
                                 if (query == null) {
                                   return;
@@ -688,7 +684,8 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                 : ListView.separated(
                     physics: const AlwaysScrollableScrollPhysics(),
                     itemCount: reminders.length,
-                    separatorBuilder: (context, _) => const SizedBox(height: 12),
+                    separatorBuilder: (context, _) =>
+                        const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final reminder = reminders[index];
                       return _ReminderSwipeAction(
@@ -697,7 +694,8 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                         child: _ReminderCard(
                           reminder: reminder,
                           controller: controller,
-                          onTap: () => _openForm(controller, reminder: reminder),
+                          onTap: () =>
+                              _openForm(controller, reminder: reminder),
                           onToggleCompletion: (value) =>
                               _toggleCompletion(controller, reminder, value),
                         ),
@@ -749,57 +747,57 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                '今日任务',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '今日任务',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                ),
               ),
-            ),
-            _SortButton(
-              mode: _sortMode,
-              onChanged: (mode) {
-                setState(() {
-                  _sortMode = mode;
-                });
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (orderedItems.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-            child: Text(
-              '${orderedItems.where((item) => !item.isCompleted).length} 条待处理',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF60716B)),
-            ),
+              _SortButton(
+                mode: _sortMode,
+                onChanged: (mode) {
+                  setState(() {
+                    _sortMode = mode;
+                  });
+                },
+              ),
+            ],
           ),
-        const SizedBox(height: 2),
-        if (orderedItems.isEmpty)
-          const _EmptyPanel(title: '今天还没有排程', subtitle: '加一条提醒，时间线就会按顺序展示出来。')
-        else
-          ...orderedItems.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _ReminderSwipeAction(
-                reminderId: item.id,
-                onDelete: () => _deleteReminder(controller, item),
-                child: _TodayReminderRow(
-                  reminder: item,
-                  controller: controller,
-                  onOpenReminder: () => _openForm(controller, reminder: item),
-                  onToggleCompletion: (value) =>
-                      _toggleCompletion(controller, item, value),
+          const SizedBox(height: 12),
+          if (orderedItems.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Text(
+                '${orderedItems.where((item) => !item.isCompleted).length} 条待处理',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF60716B),
                 ),
               ),
             ),
-          ),
+          const SizedBox(height: 2),
+          if (orderedItems.isEmpty)
+            const _EmptyPanel(title: '今天还没有排程', subtitle: '加一条提醒，时间线就会按顺序展示出来。')
+          else
+            ...orderedItems.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _ReminderSwipeAction(
+                  reminderId: item.id,
+                  onDelete: () => _deleteReminder(controller, item),
+                  child: _TodayReminderRow(
+                    reminder: item,
+                    controller: controller,
+                    onOpenReminder: () => _openForm(controller, reminder: item),
+                    onToggleCompletion: (value) =>
+                        _toggleCompletion(controller, item, value),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -966,6 +964,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
           availableLists: controller.lists,
           availableGroups: controller.groups,
           availableTags: controller.tags,
+          loadCompletionLogs: controller.fetchCompletionLogs,
         ),
       ),
     );
@@ -1888,11 +1887,7 @@ class _CompactActionChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                icon,
-                size: 14,
-                color: Color(0xFF4B5C57),
-              ),
+              Icon(icon, size: 14, color: Color(0xFF4B5C57)),
               const SizedBox(width: 4),
               Text(
                 label,

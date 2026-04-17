@@ -16,12 +16,15 @@ class ReminderFormPage extends StatefulWidget {
     required this.availableLists,
     required this.availableGroups,
     required this.availableTags,
+    this.loadCompletionLogs,
     this.initialReminder,
   });
 
   final List<ReminderList> availableLists;
   final List<ReminderGroup> availableGroups;
   final List<ReminderTag> availableTags;
+  final Future<List<ReminderCompletionLog>> Function(String reminderId)?
+  loadCompletionLogs;
   final ReminderItem? initialReminder;
 
   @override
@@ -44,6 +47,7 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
   late bool _hasSpecificTime;
   late bool _noteEnabled;
   late ReminderRepeatRule _repeatRule;
+  Future<List<ReminderCompletionLog>>? _completionLogsFuture;
 
   bool get _isEditing => widget.initialReminder != null;
 
@@ -76,6 +80,7 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
         _hasSpecificTime && (reminder?.notificationEnabled ?? true);
     _repeatRule = reminder?.repeatRule ?? ReminderRepeatRule.none;
     _syncTimeControllers();
+    _completionLogsFuture = _createCompletionLogsFuture();
   }
 
   @override
@@ -125,6 +130,15 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
     if (!currentFocus.hasPrimaryFocus) {
       currentFocus.unfocus();
     }
+  }
+
+  Future<List<ReminderCompletionLog>>? _createCompletionLogsFuture() {
+    final reminderId = widget.initialReminder?.id;
+    final loader = widget.loadCompletionLogs;
+    if (reminderId == null || loader == null) {
+      return null;
+    }
+    return loader(reminderId);
   }
 
   void _focusMinuteField() {
@@ -579,6 +593,17 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                     }
                   : null,
             ),
+            if (_completionLogsFuture != null) ...[
+              const SizedBox(height: 18),
+              _CompletionLogsSection(
+                future: _completionLogsFuture!,
+                onRetry: () {
+                  setState(() {
+                    _completionLogsFuture = _createCompletionLogsFuture();
+                  });
+                },
+              ),
+            ],
             const SizedBox(height: 20),
             FilledButton(
               onPressed: _submit,
@@ -614,7 +639,7 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                   onNext: _hourFocusNode.hasFocus
                       ? () {
                           _normalizeHourInput();
-                          _minuteFocusNode.requestFocus();
+                          _focusMinuteField();
                         }
                       : null,
                   onDone: () {
@@ -997,6 +1022,158 @@ class _QuickActionChip extends StatelessWidget {
         context,
       ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    );
+  }
+}
+
+class _CompletionLogsSection extends StatelessWidget {
+  const _CompletionLogsSection({required this.future, required this.onRetry});
+
+  final Future<List<ReminderCompletionLog>> future;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final dateTimeFormatter = DateFormat('yyyy-MM-dd HH:mm', 'zh_CN');
+    final timeFormatter = DateFormat('MM-dd HH:mm', 'zh_CN');
+
+    return FutureBuilder<List<ReminderCompletionLog>>(
+      future: future,
+      builder: (context, snapshot) {
+        final titleStyle = Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700);
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('完成记录', style: titleStyle),
+              const SizedBox(height: 10),
+              const LinearProgressIndicator(minHeight: 3),
+            ],
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('完成记录', style: titleStyle),
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF5F0),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFF0D0BF)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.error_outline_rounded,
+                      size: 18,
+                      color: Color(0xFFB85C38),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        '完成记录加载失败，请稍后重试',
+                        style: TextStyle(color: Color(0xFF8C563F)),
+                      ),
+                    ),
+                    TextButton(onPressed: onRetry, child: const Text('重试')),
+                  ],
+                ),
+              ),
+            ],
+          );
+        }
+
+        final logs = snapshot.data ?? const <ReminderCompletionLog>[];
+        if (logs.isEmpty) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('完成记录', style: titleStyle),
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FBF9),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFDDE7E1)),
+                ),
+                child: const Text(
+                  '还没有完成历史记录',
+                  style: TextStyle(color: Color(0xFF60716B)),
+                ),
+              ),
+            ],
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text('完成记录', style: titleStyle)),
+                Text(
+                  '${logs.length} 条',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: const Color(0xFF60716B),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ...logs.map((log) {
+              final originalLabel = log.originalDueAt == null
+                  ? null
+                  : timeFormatter.format(log.originalDueAt!.toLocal());
+              final nextLabel = log.nextDueAt == null
+                  ? null
+                  : timeFormatter.format(log.nextDueAt!.toLocal());
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFDDE7E1)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dateTimeFormatter.format(log.completedAt.toLocal()),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF163E36),
+                      ),
+                    ),
+                    if (originalLabel != null || nextLabel != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        [
+                          if (originalLabel != null) '原计划 $originalLabel',
+                          if (nextLabel != null) '下次 $nextLabel',
+                        ].join('  ·  '),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: const Color(0xFF60716B),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            }),
+          ],
+        );
+      },
     );
   }
 }

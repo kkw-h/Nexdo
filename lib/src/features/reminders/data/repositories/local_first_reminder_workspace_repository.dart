@@ -145,6 +145,13 @@ class LocalFirstReminderWorkspaceRepository
   }
 
   @override
+  Future<List<ReminderCompletionLog>> fetchCompletionLogs(
+    String reminderId,
+  ) async {
+    return const [];
+  }
+
+  @override
   Future<ReminderSaveResult> saveReminder(ReminderItem reminder) async {
     final workspace = await fetchWorkspace();
     final reminders = [...workspace.reminders];
@@ -157,6 +164,16 @@ class LocalFirstReminderWorkspaceRepository
     final updated = _sortWorkspace(workspace.copyWith(reminders: reminders));
     await _localDataSource.writeWorkspace(updated);
     return ReminderSaveResult(workspace: updated, reminder: reminder);
+  }
+
+  @override
+  Future<ReminderSaveResult> completeReminder(ReminderItem reminder) async {
+    final updatedReminder = reminder.copyWith(
+      dueAt: reminder.repeatRule.nextDate(reminder.dueAt),
+      updatedAt: DateTime.now(),
+      isCompleted: false,
+    );
+    return saveReminder(updatedReminder);
   }
 
   @override

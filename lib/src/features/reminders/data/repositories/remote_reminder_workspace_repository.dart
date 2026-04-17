@@ -77,6 +77,23 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
   }
 
   @override
+  Future<List<ReminderCompletionLog>> fetchCompletionLogs(
+    String reminderId,
+  ) async {
+    final data =
+        await _authorizedRequest(
+              method: 'GET',
+              path: '/reminders/$reminderId/completion-logs',
+            )
+            as List<dynamic>?;
+    return (data ?? const <dynamic>[])
+        .whereType<Map<String, dynamic>>()
+        .map(_mapCompletionLog)
+        .toList()
+      ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
+  }
+
+  @override
   Future<ReminderSaveResult> saveReminder(ReminderItem reminder) async {
     final workspace = await _ensureWorkspace();
     final exists = workspace.reminders.any((item) => item.id == reminder.id);
@@ -92,20 +109,38 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
     if (data == null) {
       throw const AuthException('保存提醒失败');
     }
-    final saved = _mapReminder(data);
-    final updatedReminders = [...workspace.reminders];
-    if (exists) {
-      final index = updatedReminders.indexWhere((item) => item.id == saved.id);
-      if (index != -1) {
-        updatedReminders[index] = saved;
-      }
-    } else {
-      updatedReminders.removeWhere((item) => item.id == reminder.id);
-      updatedReminders.add(saved);
+    return _persistReminderMutation(
+      workspace: workspace,
+      reminderId: reminder.id,
+      data: data,
+      fallback: reminder,
+      exists: exists,
+    );
+  }
+
+  @override
+  Future<ReminderSaveResult> completeReminder(ReminderItem reminder) async {
+    final workspace = await _ensureWorkspace();
+    final data =
+        await _authorizedRequest(
+              method: 'POST',
+              path: '/reminders/${reminder.id}/complete',
+            )
+            as Map<String, dynamic>?;
+    if (data == null) {
+      throw const AuthException('完成提醒失败');
     }
-    final updatedWorkspace = workspace.copyWith(reminders: updatedReminders);
-    final persisted = await _updateWorkspace(updatedWorkspace);
-    return ReminderSaveResult(workspace: persisted, reminder: saved);
+    return _persistReminderMutation(
+      workspace: workspace,
+      reminderId: reminder.id,
+      data: data,
+      fallback: reminder.copyWith(
+        dueAt: reminder.repeatRule.nextDate(reminder.dueAt),
+        updatedAt: DateTime.now(),
+        isCompleted: false,
+      ),
+      exists: true,
+    );
   }
 
   @override
@@ -470,6 +505,74 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
         map['repeat_rule'] as String?,
       ),
     );
+  }
+
+  ReminderCompletionLog _mapCompletionLog(Map<String, dynamic> map) {
+    DateTime? parseNullable(Iterable<String> keys) {
+      for (final key in keys) {
+        final value = map[key] as String?;
+        if (value != null && value.isNotEmpty) {
+          return DateTime.parse(value);
+        }
+      }
+      return null;
+    }
+
+    final completedAt =
+        parseNullable(const ['completed_at']) ??
+        parseNullable(const ['created_at']) ??
+        DateTime.now();
+
+    return ReminderCompletionLog(
+      id: (map['id'] ?? '').toString(),
+      reminderId: (map['reminder_id'] ?? '').toString(),
+      completedAt: completedAt,
+      originalDueAt: parseNullable(const ['original_due_at']),
+      nextDueAt: parseNullable(const ['next_due_at']),
+      createdAt: parseNullable(const ['created_at']),
+    );
+  }
+
+  Future<ReminderSaveResult> _persistReminderMutation({
+    required ReminderWorkspace workspace,
+    required String reminderId,
+    required Map<String, dynamic> data,
+    required ReminderItem fallback,
+    required bool exists,
+  }) async {
+    final saved = _extractReminderFromMutation(data) ?? fallback;
+    final updatedReminders = [...workspace.reminders];
+    if (exists) {
+      final index = updatedReminders.indexWhere(
+        (item) => item.id == reminderId,
+      );
+      if (index != -1) {
+        updatedReminders[index] = saved;
+      } else {
+        updatedReminders.add(saved);
+      }
+    } else {
+      updatedReminders.removeWhere((item) => item.id == reminderId);
+      updatedReminders.add(saved);
+    }
+    final updatedWorkspace = workspace.copyWith(reminders: updatedReminders);
+    final persisted = await _updateWorkspace(updatedWorkspace);
+    return ReminderSaveResult(workspace: persisted, reminder: saved);
+  }
+
+  ReminderItem? _extractReminderFromMutation(Map<String, dynamic> data) {
+    if (data.containsKey('id')) {
+      return _mapReminder(data);
+    }
+    final nested = data['reminder'];
+    if (nested is Map<String, dynamic>) {
+      return _mapReminder(nested);
+    }
+    final entity = data['data'];
+    if (entity is Map<String, dynamic> && entity.containsKey('id')) {
+      return _mapReminder(entity);
+    }
+    return null;
   }
 
   Map<String, dynamic> _reminderPayload(ReminderItem reminder) {

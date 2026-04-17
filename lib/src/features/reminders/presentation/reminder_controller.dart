@@ -52,6 +52,10 @@ class ReminderController extends ChangeNotifier {
     return _repository.queryReminders(query);
   }
 
+  Future<List<ReminderCompletionLog>> fetchCompletionLogs(String reminderId) {
+    return _repository.fetchCompletionLogs(reminderId);
+  }
+
   List<ReminderItem> remindersFor(ReminderFilter filter) {
     switch (filter) {
       case ReminderFilter.all:
@@ -102,13 +106,10 @@ class ReminderController extends ChangeNotifier {
 
   Future<void> toggleCompletion(ReminderItem reminder, bool isCompleted) async {
     if (isCompleted && reminder.repeatRule != ReminderRepeatRule.none) {
-      await saveReminder(
-        reminder.copyWith(
-          dueAt: reminder.repeatRule.nextDate(reminder.dueAt),
-          updatedAt: DateTime.now(),
-          isCompleted: false,
-        ),
-      );
+      final result = await _repository.completeReminder(reminder);
+      _workspace = result.workspace;
+      await _notificationService.scheduleForReminder(result.reminder);
+      notifyListeners();
       return;
     }
 

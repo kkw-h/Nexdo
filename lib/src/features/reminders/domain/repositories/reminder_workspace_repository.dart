@@ -16,7 +16,11 @@ abstract class ReminderWorkspaceRepository {
 
   Future<List<ReminderItem>> queryReminders(ReminderQuery query);
 
+  Future<List<ReminderCompletionLog>> fetchCompletionLogs(String reminderId);
+
   Future<ReminderSaveResult> saveReminder(ReminderItem reminder);
+
+  Future<ReminderSaveResult> completeReminder(ReminderItem reminder);
 
   Future<ReminderWorkspace> deleteReminder(String id);
 

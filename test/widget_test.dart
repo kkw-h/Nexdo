@@ -65,4 +65,24 @@ void main() {
       DateTime(2026, 4, 19, 19, 0),
     );
   });
+
+  test('completion log encode/decode keeps reminder timestamps intact', () {
+    final log = ReminderCompletionLog(
+      id: 'log-1',
+      reminderId: 'reminder-1',
+      completedAt: DateTime.parse('2026-04-17T09:30:00+08:00'),
+      originalDueAt: DateTime.parse('2026-04-17T09:00:00+08:00'),
+      nextDueAt: DateTime.parse('2026-04-18T09:00:00+08:00'),
+      createdAt: DateTime.parse('2026-04-17T09:30:10+08:00'),
+    );
+
+    final decoded = ReminderCompletionLog.fromMap(log.toMap());
+
+    expect(decoded.id, 'log-1');
+    expect(decoded.reminderId, 'reminder-1');
+    expect(decoded.completedAt, log.completedAt);
+    expect(decoded.originalDueAt, log.originalDueAt);
+    expect(decoded.nextDueAt, log.nextDueAt);
+    expect(decoded.createdAt, log.createdAt);
+  });
 }

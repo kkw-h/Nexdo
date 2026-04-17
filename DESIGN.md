@@ -1,157 +1,73 @@
-# Design System Specification: Editorial Serenity
-
+# Design System Specification: Editorial Mint
  
-
-## 1. Overview & Creative North Star: "The Kinetic Atelier"
-
-This design system rejects the "standard" box-model web. Our Creative North Star is **The Kinetic Atelier**—a space that feels like a high-end physical studio: airy, curated, and bathed in soft, natural light. 
-
+## 1. Overview & Creative North Star
+The Creative North Star for this design system is **"The Serene Curator."** 
  
-
-We move beyond the "template" look by embracing **Intentional Asymmetry**. Do not feel forced to center-align every element. Use generous, "breathtaking" amounts of white space to isolate content, making every piece of information feel like a gallery artifact. By layering organic, pill-like shapes (radii up to `3rem`) over a base of cool, misty grays, we create a digital environment that reduces cognitive load and invites calm exploration.
-
+Moving away from the sterile, rigid grids of utility-first applications, this system prioritizes a high-end editorial feel. It treats task management as a mindful ritual rather than a chore. We achieve this through "Breathable Depth"—using expansive whitespace, soft organic shapes, and a sophisticated tonal palette that favors background shifts over harsh outlines. The goal is to create an interface that feels like a premium physical planner resting on a frosted glass desk.
  
-
----
-
+## 2. Colors & Tonal Logic
+Our palette is rooted in botanical teals and mints, designed to reduce cognitive load.
  
-
-## 2. Colors: Tonal Depth over Linework
-
-Our palette is rooted in the "Seafoam and Slate" spectrum. We use the Primary `mint` (#2d695f) only for moments of high intentionality—never for decoration.
-
+### Color Strategy
+*   **The "No-Line" Rule:** 1px solid borders are strictly prohibited for sectioning. Structural separation must be achieved through background color shifts. For example, a card (`surface_container_lowest`) should sit on a background of `surface_container`, using value contrast rather than line weight to define its bounds.
+*   **Surface Hierarchy & Nesting:** Use the `surface` tiers to create physical presence. 
+    *   **Level 0 (Base):** `surface` (#f1fbf9) – The global canvas.
+    *   **Level 1 (Sections):** `surface_container_low` (#e8f7f4) – Grouping large content areas.
+    *   **Level 2 (Active Cards):** `surface_container_lowest` (#ffffff) – The primary focal point for tasks.
+*   **The "Glass & Gradient" Rule:** Floating elements, such as bottom navigation bars or active headers, should utilize a `surface_bright` tint with a `backdrop-blur` of 20px. 
+*   **Signature Textures:** Use a subtle linear gradient for primary CTAs: `primary` (#006c5a) to `primary_dim` (#005e4f) at a 135° angle to provide a velvet-like depth.
  
-
-### The "No-Line" Rule
-
-**Explicit Instruction:** Designers are prohibited from using 1px solid borders for sectioning. Structural boundaries must be defined solely through background color shifts. 
-
-*   *Implementation:* Use `surface-container-low` (#f0f4f7) for a side panel sitting against a `surface` (#f7f9fb) main body.
-
+| Token | Hex | Role |
+| :--- | :--- | :--- |
+| `primary` | #006c5a | Brand anchor, high-emphasis actions. |
+| `primary_container` | #8cecd3 | Soft mint backgrounds for active states. |
+| `surface` | #f1fbf9 | The soft "Paper" base of the application. |
+| `surface_container_highest` | #d1e7e4 | Depth for inactive or recessed elements. |
+| `on_surface_variant` | #4f6361 | Secondary text with reduced optical weight. |
+| `tertiary_container` | #fdb64b | Warm accents for alerts or "high energy" tags. |
  
-
-### Surface Hierarchy & Nesting
-
-Treat the UI as a series of stacked, fine papers. 
-
-*   **Base:** `surface` (#f7f9fb)
-
-*   **Elevated Containers:** Use `surface-container-lowest` (#ffffff) for "hero" cards to make them appear to float toward the user.
-
-*   **Recessed Elements:** Use `surface-container-high` (#e3e9ed) for input fields or search bars to create a sense of tactile depth.
-
- 
-
-### The "Glass & Gradient" Rule
-
-To elevate the experience, use **Glassmorphism** for floating navigation or overlay menus. 
-
-*   *Token:* Use `surface` at 70% opacity with a `24px` backdrop-blur. 
-
-*   *CTAs:* Instead of flat fills, apply a subtle linear gradient from `primary` (#2d695f) to `primary-dim` (#1f5c53) at a 135-degree angle to add "soul" and weight.
-
- 
-
----
-
- 
-
 ## 3. Typography: The Editorial Voice
-
-We use **Plus Jakarta Sans** exclusively. Its modern geometric curves complement our organic border radii.
-
+We use **Plus Jakarta Sans** for its modern, geometric clarity and generous x-height, which ensures legibility even at smaller scales.
  
-
-*   **Display (lg/md/sm):** Use `display-lg` (3.5rem) with `-0.02em` letter-spacing. These are your "billboard" moments. Keep them short and evocative.
-
-*   **Headlines:** Use `headline-md` (1.75rem) in `on-surface` (#2c3437) for section headers. Ensure there is at least `48px` of top-margin to let the heading breathe.
-
-*   **Body Text:** To ensure readability without breaking the "airy" feel, use `body-lg` (1rem) in `on-surface-variant` (#596064). The slightly darker gray provides necessary contrast against light backgrounds while remaining softer than pure black.
-
-*   **Labels:** Use `label-md` (0.75rem) in All-Caps with `0.05em` tracking for a sophisticated, "label-maker" aesthetic on metadata.
-
+*   **Display & Headlines:** Use `headline-lg` (2rem) with `on_surface` (#233634) for page titles. Bold weights should be used sparingly to maintain an airy, sophisticated feel.
+*   **Contextual Titles:** `title-md` (1.125rem) is the workhorse for card headers. It provides enough presence to lead the eye without crowding the container.
+*   **The Label System:** `label-md` and `label-sm` are always paired with `surface_container_highest` background chips to create a "tag" aesthetic that feels distinct from body copy.
  
-
----
-
+## 4. Elevation & Depth
+In this design system, shadows are a last resort, not a default. We convey hierarchy through **Tonal Layering**.
  
-
-## 4. Elevation & Depth: Atmospheric Volume
-
-We do not use shadows to show "clickability"; we use them to show **Atmosphere**.
-
+*   **The Layering Principle:** Rather than "lifting" an object with a shadow, "sink" the background. To make a task card pop, place a `#ffffff` card on an `#e1f1ef` background.
+*   **Ambient Shadows:** Where floating interaction is required (e.g., FABs or modals), use an "Ambient Mint" shadow:
+    *   `box-shadow: 0 12px 32px -8px rgba(0, 108, 90, 0.08);`
+    *   The shadow is tinted with the `primary` color to mimic natural light passing through a translucent green surface.
+*   **The Ghost Border Fallback:** If a border is required for accessibility (e.g., in high-contrast modes), use `outline_variant` (#a1b6b4) at **15% opacity**. Never use a 100% opaque border.
+*   **Roundedness Scale:**
+    *   `DEFAULT`: 1rem (16px) - For standard task cards.
+    *   `md`: 1.5rem (24px) - For parent containers and hero sections.
+    *   `full`: 9999px - For chips, pills, and action buttons.
  
-
-*   **The Layering Principle:** Place a `surface-container-lowest` card on a `surface-container-low` section. The change in hex code provides enough "lift" for the eye without visual clutter.
-
-*   **Ambient Shadows:** For floating elements (Modals, Hovered Cards), use an extra-diffused shadow: `0 20px 40px rgba(44, 52, 55, 0.06)`. Note the use of `on-surface` (#2c3437) as the shadow tint rather than pure black.
-
-*   **The "Ghost Border" Fallback:** If a border is required for accessibility, use the `outline-variant` token at 20% opacity. 100% opaque borders are strictly forbidden.
-
- 
-
----
-
- 
-
 ## 5. Components
-
  
-
-### Buttons
-
-*   **Primary:** High-pill (`rounded-full`), `primary` fill, `on-primary` text. Use a subtle shadow on hover to "lift" the button toward the cursor.
-
-*   **Tertiary:** No background. Use `primary` text and a `2px` underline that appears only on hover.
-
- 
-
 ### Cards & Lists
-
-*   **Rule:** Forbid the use of divider lines. 
-
-*   **Execution:** Separate list items using `12px` of vertical margin and a subtle `surface-container` background on the item container.
-
-*   **Shape:** Use `rounded-lg` (2rem) for standard cards and `rounded-xl` (3rem) for large hero sections to maintain the "pill-like" aesthetic.
-
+*   **Card Anatomy:** Use `surface_container_lowest` for the card body. Internal padding must be a minimum of `1.5rem` (24px).
+*   **Anti-Divider Rule:** Forbid the use of 1px dividers between list items. Use vertical whitespace (16px–24px) or a subtle 4px margin with a background color shift to separate tasks.
  
-
-### Input Fields
-
-*   **State:** Background should be `surface-container-highest`. Upon focus, the background transitions to `surface-container-lowest` with a `2px` "Ghost Border" in `primary`.
-
+### Buttons & Inputs
+*   **Primary Button:** Pill-shaped (`rounded-full`). Background uses the `primary` to `primary_dim` gradient. Text is `on_primary` (#e3fff5).
+*   **Selection Chips:** Use `primary_container` for the active state and `surface_container_highest` for the inactive state. Typography should be `label-md`.
+*   **Checkboxes:** Custom rounded squares (8px radius). When checked, use a `primary` fill with a white checkmark. When unchecked, use a 2px `outline_variant` at 40% opacity.
  
-
-### Sophisticated Chips
-
-*   **Selection:** Use `secondary-container` with `on-secondary-container` text. The shape must be `rounded-full` (pill).
-
+### Floating Action Button (FAB)
+*   The FAB is the system’s "Jewel." It should use a Glassmorphic effect: `surface_container_lowest` with 80% opacity and a 12px backdrop blur, or a solid `primary_container` if high visibility is needed.
  
-
----
-
+## 6. Do's and Don'ts
  
-
-## 6. Do’s and Don’ts
-
+### Do
+*   **Do** use asymmetrical margins to create editorial interest (e.g., a larger top margin for section headers).
+*   **Do** use `on_surface_variant` for metadata like dates or categories to create a clear visual hierarchy.
+*   **Do** embrace "Mint-on-Mint" layering to create a cohesive, branded environment.
  
-
-### Do:
-
-*   **Do** allow elements to "bleed" off the edge of the grid if they are decorative.
-
-*   **Do** use asymmetrical margins (e.g., a wider left margin than right) to create a custom, editorial feel.
-
-*   **Do** use `primary-container` (#b2eee2) as a soft background highlight for active states.
-
- 
-
-### Don’t:
-
-*   **Don’t** use a divider line to separate headers from content. Use white space.
-
-*   **Don’t** use sharp 90-degree corners. Everything must feel "eroded" and soft.
-
-*   **Don’t** use the `primary` mint green for large background blocks; it is too heavy for this "serene" system. Use it only for icons, buttons, and accents.
-
-*   **Don’t** use standard "drop shadows." If it doesn't look like a soft glow, it's too dark.
+### Don't
+*   **Don't** use pure black (#000000) for text. Always use `on_surface` (#233634) to maintain the soft botanical palette.
+*   **Don't** use "Drop Shadows" that are grey or high-opacity. They break the serenity of the "Curator" aesthetic.
+*   **Don't** cram content. If a card feels tight, increase the parent container's padding rather than shrinking the font.

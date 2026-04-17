@@ -19,6 +19,13 @@
       },
       "versions": [
         {
+          "version": "1.0.15",
+          "date": "2026-04-17T00:31:56Z",
+          "localizedDescription": "移除清单页面右上角刷新按钮，保留今日页面刷新入口。",
+          "downloadURL": "https://github.com/kkw-h/Nexdo/releases/download/v1.0.15/Nexdo-AltStore-1.0.15.ipa",
+          "size": 33268409
+        },
+        {
           "version": "1.0.14",
           "date": "2026-04-17T00:12:39Z",
           "localizedDescription": "接入循环提醒完成接口与完成记录展示。",

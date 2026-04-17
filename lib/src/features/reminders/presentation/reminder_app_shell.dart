@@ -307,18 +307,15 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                       onOpenCalendar: () => _openCalendarPage(controller),
                       showCalendarButton:
                           _selectedNavIndex == 0 || _selectedNavIndex == 1,
-                      onRefresh:
-                          (_selectedNavIndex == 2 || _selectedNavIndex == 3)
-                          ? null
-                          : () => _refreshData(controller),
-                      isRefreshing:
-                          (_selectedNavIndex == 2 || _selectedNavIndex == 3)
-                          ? false
-                          : _refreshing,
-                      refreshCountdownLabel:
-                          (_selectedNavIndex == 2 || _selectedNavIndex == 3)
-                          ? null
-                          : _countdownLabel(),
+                      onRefresh: _selectedNavIndex == 0
+                          ? () => _refreshData(controller)
+                          : null,
+                      isRefreshing: _selectedNavIndex == 0
+                          ? _refreshing
+                          : false,
+                      refreshCountdownLabel: _selectedNavIndex == 0
+                          ? _countdownLabel()
+                          : null,
                       customTrailing: _selectedNavIndex == 2
                           ? _QuickNotesStatusButton(
                               diagnostics: _quickNotesDiagnostics,

@@ -19,6 +19,13 @@
       },
       "versions": [
         {
+          "version": "1.0.17",
+          "date": "2026-04-17T07:56:19Z",
+          "localizedDescription": "基于 DESIGN.md 更新项目主题配色，新增 Editorial Mint 风格主题方案。",
+          "downloadURL": "https://github.com/kkw-h/Nexdo/releases/download/v1.0.17/Nexdo-AltStore-1.0.17.ipa",
+          "size": 33294583
+        },
+        {
           "version": "1.0.16",
           "date": "2026-04-17T03:34:39Z",
           "localizedDescription": "Nexdo 1.0.16 发布",

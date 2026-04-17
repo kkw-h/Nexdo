@@ -52,14 +52,18 @@ class _NexdoAppState extends State<NexdoApp> {
                 brightness: Brightness.light,
               ).copyWith(
                 primary: palette.primary,
-                onPrimary: Colors.white,
+                onPrimary: palette.onPrimary,
                 secondary: palette.secondary,
-                onSecondary: Colors.white,
-                secondaryContainer: palette.outlineSoft,
+                onSecondary: palette.onPrimary,
+                primaryContainer: palette.primaryContainer,
+                onPrimaryContainer: palette.onSurface,
+                secondaryContainer: palette.surfaceContainerLow,
                 onSecondaryContainer: palette.secondary,
                 surface: palette.surface,
                 onSurface: palette.onSurface,
-                surfaceContainerHighest: palette.outline,
+                surfaceContainerLow: palette.surfaceContainerLow,
+                surfaceContainerHighest: palette.chipBackground,
+                surfaceBright: palette.surfaceBright,
                 outline: palette.outline,
                 outlineVariant: palette.outlineSoft,
               );
@@ -82,6 +86,7 @@ class _NexdoAppState extends State<NexdoApp> {
               colorScheme: colorScheme,
               scaffoldBackgroundColor: palette.background,
               canvasColor: palette.background,
+              dividerColor: Colors.transparent,
               fontFamily: 'MiSans',
               useMaterial3: true,
               textTheme: baseTextTheme.copyWith(
@@ -136,17 +141,17 @@ class _NexdoAppState extends State<NexdoApp> {
                   ),
                   shape: WidgetStateProperty.all(
                     RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(999),
                     ),
                   ),
                   backgroundColor: WidgetStateProperty.resolveWith((states) {
                     if (states.contains(WidgetState.disabled)) {
-                      return colorScheme.secondary.withValues(alpha: 0.45);
+                      return palette.primaryDim.withValues(alpha: 0.45);
                     }
                     if (states.contains(WidgetState.pressed)) {
-                      return colorScheme.secondary.withValues(alpha: 0.92);
+                      return palette.primaryDim;
                     }
-                    return colorScheme.secondary;
+                    return palette.primary;
                   }),
                   foregroundColor: WidgetStateProperty.all(
                     colorScheme.onPrimary,
@@ -164,10 +169,10 @@ class _NexdoAppState extends State<NexdoApp> {
                     if (states.contains(WidgetState.pressed)) {
                       return 0;
                     }
-                    return 3;
+                    return 0;
                   }),
                   shadowColor: WidgetStateProperty.all(
-                    colorScheme.secondary.withValues(alpha: 0.28),
+                    palette.primary.withValues(alpha: 0.08),
                   ),
                   surfaceTintColor: WidgetStateProperty.all(Colors.transparent),
                   textStyle: WidgetStateProperty.all(
@@ -186,7 +191,7 @@ class _NexdoAppState extends State<NexdoApp> {
                   ),
                   shape: WidgetStateProperty.all(
                     RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(999),
                     ),
                   ),
                   foregroundColor: WidgetStateProperty.all(palette.secondary),
@@ -226,7 +231,7 @@ class _NexdoAppState extends State<NexdoApp> {
                   }),
                   shape: WidgetStateProperty.all(
                     RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(999),
                     ),
                   ),
                   foregroundColor: WidgetStateProperty.all(palette.secondary),
@@ -257,9 +262,6 @@ class _NexdoAppState extends State<NexdoApp> {
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                   side: WidgetStateProperty.resolveWith((states) {
-                    if (states.contains(WidgetState.selected)) {
-                      return BorderSide(color: palette.outline);
-                    }
                     return BorderSide(color: palette.outline);
                   }),
                   shape: WidgetStateProperty.all(
@@ -271,7 +273,7 @@ class _NexdoAppState extends State<NexdoApp> {
                     if (states.contains(WidgetState.selected)) {
                       return palette.surface;
                     }
-                    return palette.background;
+                    return palette.surfaceContainerLow;
                   }),
                   foregroundColor: WidgetStateProperty.resolveWith((states) {
                     if (states.contains(WidgetState.selected)) {
@@ -290,11 +292,10 @@ class _NexdoAppState extends State<NexdoApp> {
                 color: palette.surface,
                 elevation: 0,
                 margin: EdgeInsets.zero,
-                shadowColor: const Color(0x14293B52),
+                shadowColor: palette.primary.withValues(alpha: 0.08),
                 surfaceTintColor: Colors.transparent,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(24),
-                  side: BorderSide(color: palette.outline),
                 ),
               ),
               snackBarTheme: SnackBarThemeData(
@@ -324,19 +325,21 @@ class _NexdoAppState extends State<NexdoApp> {
                   );
                 }),
                 labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-                backgroundColor: palette.surface,
+                backgroundColor: palette.surfaceBright.withValues(alpha: 0.88),
                 indicatorColor: palette.navIndicator,
                 surfaceTintColor: Colors.transparent,
                 shadowColor: Colors.transparent,
               ),
               floatingActionButtonTheme: FloatingActionButtonThemeData(
-                backgroundColor: colorScheme.secondary,
-                foregroundColor: Colors.white,
+                backgroundColor: palette.primaryContainer.withValues(
+                  alpha: 0.92,
+                ),
+                foregroundColor: palette.primary,
                 extendedPadding: const EdgeInsets.symmetric(horizontal: 18),
-                elevation: 4,
-                focusElevation: 5,
-                hoverElevation: 5,
-                highlightElevation: 1,
+                elevation: 0,
+                focusElevation: 0,
+                hoverElevation: 0,
+                highlightElevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
                 ),
@@ -406,10 +409,7 @@ class _NexdoAppState extends State<NexdoApp> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide(
-                    color: colorScheme.primary,
-                    width: 1.4,
-                  ),
+                  borderSide: BorderSide(color: palette.outline, width: 1.2),
                 ),
                 errorBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(18),
@@ -423,10 +423,10 @@ class _NexdoAppState extends State<NexdoApp> {
                   ),
                 ),
               ),
-              dividerTheme: DividerThemeData(
-                color: palette.outline,
-                thickness: 1,
-                space: 1,
+              dividerTheme: const DividerThemeData(
+                color: Colors.transparent,
+                thickness: 0,
+                space: 0,
               ),
             ),
             home: const AuthGate(),

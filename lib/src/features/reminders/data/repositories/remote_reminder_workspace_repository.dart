@@ -48,8 +48,10 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
   }
 
   @override
-  Future<ReminderWorkspace> refreshWorkspace() async {
-    return _refreshWorkspace();
+  Future<ReminderWorkspace> refreshWorkspace({
+    bool forceBootstrap = false,
+  }) async {
+    return _refreshWorkspace(forceBootstrap: forceBootstrap);
   }
 
   @override
@@ -115,31 +117,6 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
       data: data,
       fallback: reminder,
       exists: exists,
-    );
-  }
-
-  @override
-  Future<ReminderSaveResult> completeReminder(ReminderItem reminder) async {
-    final workspace = await _ensureWorkspace();
-    final data =
-        await _authorizedRequest(
-              method: 'POST',
-              path: '/reminders/${reminder.id}/complete',
-            )
-            as Map<String, dynamic>?;
-    if (data == null) {
-      throw const AuthException('完成提醒失败');
-    }
-    return _persistReminderMutation(
-      workspace: workspace,
-      reminderId: reminder.id,
-      data: data,
-      fallback: reminder.copyWith(
-        dueAt: reminder.repeatRule.nextDate(reminder.dueAt),
-        updatedAt: DateTime.now(),
-        isCompleted: false,
-      ),
-      exists: true,
     );
   }
 

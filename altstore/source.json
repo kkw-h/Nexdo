@@ -19,6 +19,13 @@
       },
       "versions": [
         {
+          "version": "1.0.19",
+          "date": "2026-04-17T10:50:36Z",
+          "localizedDescription": "统一循环提醒完成逻辑，并为今日页面增加下拉整表刷新。",
+          "downloadURL": "https://github.com/kkw-h/Nexdo/releases/download/v1.0.19/Nexdo-AltStore-1.0.19.ipa",
+          "size": 33293621
+        },
+        {
           "version": "1.0.18",
           "date": "2026-04-17T08:36:14Z",
           "localizedDescription": "优化今日、清单、闪念、我的页面头部布局，并将主题外观收敛为晨雾薄荷。",

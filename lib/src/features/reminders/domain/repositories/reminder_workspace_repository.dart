@@ -12,15 +12,13 @@ abstract class ReminderWorkspaceRepository {
 
   Future<ReminderWorkspace> seedIfEmpty();
 
-  Future<ReminderWorkspace> refreshWorkspace();
+  Future<ReminderWorkspace> refreshWorkspace({bool forceBootstrap = false});
 
   Future<List<ReminderItem>> queryReminders(ReminderQuery query);
 
   Future<List<ReminderCompletionLog>> fetchCompletionLogs(String reminderId);
 
   Future<ReminderSaveResult> saveReminder(ReminderItem reminder);
-
-  Future<ReminderSaveResult> completeReminder(ReminderItem reminder);
 
   Future<ReminderWorkspace> deleteReminder(String id);
 

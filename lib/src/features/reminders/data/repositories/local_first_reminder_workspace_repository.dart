@@ -120,7 +120,9 @@ class LocalFirstReminderWorkspaceRepository
   }
 
   @override
-  Future<ReminderWorkspace> refreshWorkspace() async {
+  Future<ReminderWorkspace> refreshWorkspace({
+    bool forceBootstrap = false,
+  }) async {
     return fetchWorkspace();
   }
 
@@ -164,16 +166,6 @@ class LocalFirstReminderWorkspaceRepository
     final updated = _sortWorkspace(workspace.copyWith(reminders: reminders));
     await _localDataSource.writeWorkspace(updated);
     return ReminderSaveResult(workspace: updated, reminder: reminder);
-  }
-
-  @override
-  Future<ReminderSaveResult> completeReminder(ReminderItem reminder) async {
-    final updatedReminder = reminder.copyWith(
-      dueAt: reminder.repeatRule.nextDate(reminder.dueAt),
-      updatedAt: DateTime.now(),
-      isCompleted: false,
-    );
-    return saveReminder(updatedReminder);
   }
 
   @override

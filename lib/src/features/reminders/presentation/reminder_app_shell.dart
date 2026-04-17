@@ -217,6 +217,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
             controller,
             todayItems,
             onRefresh: () => _refreshData(controller),
+            onPullRefresh: () => _refreshData(controller, forceBootstrap: true),
             onOpenCalendar: () => _openCalendarPage(controller),
           ),
           _buildInboxView(
@@ -349,19 +350,22 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     );
   }
 
-  Future<void> _refreshData(ReminderController controller) async {
+  Future<void> _refreshData(
+    ReminderController controller, {
+    bool forceBootstrap = false,
+  }) async {
     setState(() {
       _refreshing = true;
     });
     try {
-      await controller.refresh();
+      await controller.refresh(forceBootstrap: forceBootstrap);
       await _refreshInboxQueryIfNeeded(controller);
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('已刷新最新数据')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(forceBootstrap ? '已完整刷新整个列表' : '已刷新最新数据')),
+      );
     } on AuthException catch (error) {
       if (!mounted) {
         return;
@@ -752,6 +756,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     ReminderController controller,
     List<ReminderItem> todayItems, {
     required Future<void> Function() onRefresh,
+    required Future<void> Function() onPullRefresh,
     required VoidCallback onOpenCalendar,
   }) {
     final orderedItems = _sortReminders(todayItems);
@@ -760,7 +765,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     final countdownLabel = _countdownLabel();
 
     return RefreshIndicator(
-      onRefresh: onRefresh,
+      onRefresh: onPullRefresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
@@ -949,13 +954,14 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _ThemePresetTile(
-                    palette: AppThemeController.palettes[AppThemePreset.mist]!,
-                    selected: true,
-                    onTap: () =>
-                        themeController.updatePreset(AppThemePreset.mist),
+                ...const [AppThemePreset.mist].map(
+                  (preset) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _ThemePresetTile(
+                      palette: AppThemeController.palettes[preset]!,
+                      selected: themeController.preset == preset,
+                      onTap: () => themeController.updatePreset(preset),
+                    ),
                   ),
                 ),
               ],

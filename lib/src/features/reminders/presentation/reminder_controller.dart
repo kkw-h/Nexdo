@@ -44,8 +44,8 @@ class ReminderController extends ChangeNotifier {
     _startPolling();
   }
 
-  Future<void> refresh() {
-    return _syncFromServer();
+  Future<void> refresh({bool forceBootstrap = false}) {
+    return _syncFromServer(forceBootstrap: forceBootstrap);
   }
 
   Future<List<ReminderItem>> queryReminders(ReminderQuery query) {
@@ -105,14 +105,6 @@ class ReminderController extends ChangeNotifier {
   }
 
   Future<void> toggleCompletion(ReminderItem reminder, bool isCompleted) async {
-    if (isCompleted && reminder.repeatRule != ReminderRepeatRule.none) {
-      final result = await _repository.completeReminder(reminder);
-      _workspace = result.workspace;
-      await _notificationService.scheduleForReminder(result.reminder);
-      notifyListeners();
-      return;
-    }
-
     await saveReminder(
       reminder.copyWith(isCompleted: isCompleted, updatedAt: DateTime.now()),
     );
@@ -231,13 +223,18 @@ class ReminderController extends ChangeNotifier {
     });
   }
 
-  Future<void> _syncFromServer({bool suppressErrors = false}) async {
+  Future<void> _syncFromServer({
+    bool suppressErrors = false,
+    bool forceBootstrap = false,
+  }) async {
     if (_syncInProgress) {
       return;
     }
     _syncInProgress = true;
     try {
-      final workspace = await _repository.refreshWorkspace();
+      final workspace = await _repository.refreshWorkspace(
+        forceBootstrap: forceBootstrap,
+      );
       _workspace = workspace;
       await _notificationService.syncAll(_workspace.reminders);
       _updateNextSyncTime();

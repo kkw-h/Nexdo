@@ -640,7 +640,7 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFE4EEE6), Color(0xFFF7F4EC)],
+            colors: [Color(0xFFF1F5F9), Color(0xFFF8FAFC)],
           ),
         ),
         child: SafeArea(
@@ -956,7 +956,7 @@ class _ReminderFormHeroCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFCF7),
+        color: const Color(0xFFFFFFFF),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFFE4EAE4)),
       ),
@@ -966,7 +966,7 @@ class _ReminderFormHeroCard extends StatelessWidget {
           Text(
             isEditing ? 'EDIT REMINDER' : 'NEW REMINDER',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: const Color(0xFFE58A3A),
+              color: const Color(0xFF2563EB),
               fontWeight: FontWeight.w800,
               letterSpacing: 1.2,
             ),
@@ -1144,7 +1144,7 @@ class _CompletionLogsSection extends StatelessWidget {
                     const Icon(
                       Icons.error_outline_rounded,
                       size: 18,
-                      color: Color(0xFFB85C38),
+                      color: Color(0xFFB91C1C),
                     ),
                     const SizedBox(width: 10),
                     const Expanded(

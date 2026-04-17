@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/theme/app_theme.dart';
 
 class ApiDebugPage extends StatefulWidget {
   const ApiDebugPage({super.key, required this.apiClient});
@@ -38,15 +39,16 @@ class _ApiDebugPageState extends State<ApiDebugPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final palette = AppThemeScope.of(context).palette;
 
     return Scaffold(
       appBar: AppBar(title: const Text('接口调试工具')),
       body: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFE4EEE6), Color(0xFFF7F4EC)],
+            colors: [palette.outlineSoft, palette.background],
           ),
         ),
         child: SafeArea(
@@ -83,7 +85,7 @@ class _ApiDebugPageState extends State<ApiDebugPage> {
                       Text(
                         '用于验证 Flutter 到 Nexdo API 的连通性。可以修改上方地址并点击应用，再触发 `GET /health` 查看结果。',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: const Color(0xFF60716B),
+                          color: const Color(0xFF64748B),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -133,8 +135,15 @@ class _ApiDebugPageState extends State<ApiDebugPage> {
                         width: double.infinity,
                         constraints: const BoxConstraints(minHeight: 220),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF173A33),
+                          color: const Color(0xFF475569),
                           borderRadius: BorderRadius.circular(18),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x14293B52),
+                              blurRadius: 24,
+                              offset: Offset(0, 10),
+                            ),
+                          ],
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(14),
@@ -145,8 +154,8 @@ class _ApiDebugPageState extends State<ApiDebugPage> {
                                   '尚未发起请求。\n当前地址：$_activeBaseUrl',
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: _error != null
-                                    ? const Color(0xFFFFC9B8)
-                                    : const Color(0xFFE8F0EB),
+                                    ? const Color(0xFFFECACA)
+                                    : palette.outline,
                                 fontFamily: 'monospace',
                                 height: 1.5,
                               ),
@@ -221,8 +230,15 @@ class _ApiDebugHeroCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
       decoration: BoxDecoration(
-        color: const Color(0xFF173A33),
+        color: AppThemeScope.of(context).palette.heroBackground,
         borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14293B52),
+            blurRadius: 28,
+            offset: Offset(0, 12),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,10 +247,13 @@ class _ApiDebugHeroCard extends StatelessWidget {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFE7D1),
+              color: AppThemeScope.of(context).palette.heroAvatarBackground,
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(Icons.route_rounded, color: Color(0xFF173A33)),
+            child: Icon(
+              Icons.route_rounded,
+              color: AppThemeScope.of(context).palette.heroAvatarForeground,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
@@ -247,9 +266,9 @@ class _ApiDebugHeroCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             '适合快速验证接口地址、健康检查结果和基础网络响应。',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFFC8D6D0)),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppThemeScope.of(context).palette.heroMutedText,
+            ),
           ),
         ],
       ),

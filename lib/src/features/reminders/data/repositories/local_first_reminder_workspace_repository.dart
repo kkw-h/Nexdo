@@ -27,13 +27,13 @@ class LocalFirstReminderWorkspaceRepository
         ReminderList(
           id: 'list-work',
           name: '工作',
-          colorValue: 0xFF126A5A,
+          colorValue: 0xFF64748B,
           sortOrder: 0,
         ),
         ReminderList(
           id: 'list-life',
           name: '生活',
-          colorValue: 0xFFB85C38,
+          colorValue: 0xFF3B82F6,
           sortOrder: 1,
         ),
         ReminderList(
@@ -66,7 +66,7 @@ class LocalFirstReminderWorkspaceRepository
       tags: const [
         ReminderTag(id: 'tag-urgent', name: '紧急', colorValue: 0xFFC75C3A),
         ReminderTag(id: 'tag-deep', name: '深度工作', colorValue: 0xFF2B6F77),
-        ReminderTag(id: 'tag-team', name: '协作', colorValue: 0xFF6B5FB3),
+        ReminderTag(id: 'tag-team', name: '协作', colorValue: 0xFF3B82F6),
       ],
       reminders: [
         ReminderItem(

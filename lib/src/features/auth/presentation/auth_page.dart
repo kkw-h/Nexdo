@@ -3,6 +3,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 
 import '../../../core/layout/app_layout.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/theme/app_theme.dart';
 import '../data/auth_repository.dart';
 import '../domain/auth_user.dart';
 import 'api_debug_page.dart';
@@ -47,14 +48,15 @@ class _AuthPageState extends State<AuthPage> {
   @override
   Widget build(BuildContext context) {
     final isRegister = _mode == AuthMode.register;
+    final palette = AppThemeScope.of(context).palette;
 
     return Scaffold(
       body: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFDCEEE6), Color(0xFFF5F7F2)],
+            colors: [palette.outlineSoft, palette.background],
           ),
         ),
         child: SafeArea(
@@ -77,8 +79,15 @@ class _AuthPageState extends State<AuthPage> {
                             width: double.infinity,
                             padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF173A33),
+                              color: palette.heroBackground,
                               borderRadius: BorderRadius.circular(22),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x14293B52),
+                                  blurRadius: 28,
+                                  offset: Offset(0, 12),
+                                ),
+                              ],
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,12 +96,12 @@ class _AuthPageState extends State<AuthPage> {
                                   height: 54,
                                   width: 54,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFFFE7D1),
+                                    color: palette.heroAvatarBackground,
                                     borderRadius: BorderRadius.circular(18),
                                   ),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.task_alt_rounded,
-                                    color: Color(0xFF173A33),
+                                    color: palette.heroAvatarForeground,
                                   ),
                                 ),
                                 const SizedBox(height: 18),
@@ -112,9 +121,7 @@ class _AuthPageState extends State<AuthPage> {
                                       ? '一个地方管理提醒、清单和闪念，让日程与想法保持同步。'
                                       : '登录后继续处理提醒、记录闪念并维护你的任务系统。',
                                   style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        color: const Color(0xFFC8D6D0),
-                                      ),
+                                      ?.copyWith(color: palette.heroMutedText),
                                 ),
                                 const SizedBox(height: 16),
                                 const Wrap(
@@ -150,7 +157,7 @@ class _AuthPageState extends State<AuthPage> {
                                 ? '注册后即可直接连接 Nexdo API，同步提醒与闪念数据。'
                                 : '输入你的账号信息，继续管理提醒、清单、闪念和日历安排。',
                             style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: const Color(0xFF60716B)),
+                                ?.copyWith(color: palette.textMuted),
                           ),
                           const SizedBox(height: 20),
                           _AuthModeSegmentedControl(
@@ -312,7 +319,7 @@ class _AuthPageState extends State<AuthPage> {
                           Text(
                             '账号体系已连接 Nexdo API，登录/注册将直接访问云端接口。',
                             style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: const Color(0xFF7A8A84)),
+                                ?.copyWith(color: const Color(0xFF94A3B8)),
                           ),
                           const SizedBox(height: 12),
                           Align(
@@ -427,14 +434,27 @@ class _AuthModeSegmentedControl extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      child: SegmentedButton<AuthMode>(
-        showSelectedIcon: false,
-        segments: const [
-          ButtonSegment<AuthMode>(value: AuthMode.login, label: Text('登录')),
-          ButtonSegment<AuthMode>(value: AuthMode.register, label: Text('注册')),
-        ],
-        selected: {mode},
-        onSelectionChanged: (selection) => onChanged(selection.first),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppThemeScope.of(context).palette.background,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppThemeScope.of(context).palette.outline),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: SegmentedButton<AuthMode>(
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment<AuthMode>(value: AuthMode.login, label: Text('登录')),
+              ButtonSegment<AuthMode>(
+                value: AuthMode.register,
+                label: Text('注册'),
+              ),
+            ],
+            selected: {mode},
+            onSelectionChanged: (selection) => onChanged(selection.first),
+          ),
+        ),
       ),
     );
   }
@@ -458,12 +478,16 @@ class _AuthFeatureChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: const Color(0xFFFFE7D1)),
+          Icon(
+            icon,
+            size: 14,
+            color: AppThemeScope.of(context).palette.heroAvatarBackground,
+          ),
           const SizedBox(width: 6),
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: const Color(0xFFFFE7D1),
+              color: AppThemeScope.of(context).palette.heroAvatarBackground,
               fontWeight: FontWeight.w700,
             ),
           ),

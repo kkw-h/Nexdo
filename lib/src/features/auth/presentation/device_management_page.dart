@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../../core/device/device_identity.dart';
+import '../../../core/theme/app_theme.dart';
 import '../data/auth_repository.dart';
 import '../domain/auth_device.dart';
 
@@ -110,14 +111,15 @@ class _DeviceManagementPageState extends State<DeviceManagementPage> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     return Scaffold(
       appBar: AppBar(title: const Text('设备管理')),
       body: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFE4EEE6), Color(0xFFF7F4EC)],
+            colors: [palette.outlineSoft, palette.background],
           ),
         ),
         child: _buildBody(),
@@ -143,7 +145,7 @@ class _DeviceManagementPageState extends State<DeviceManagementPage> {
                   children: [
                     const Icon(
                       Icons.cloud_off_rounded,
-                      color: Color(0xFFB85C38),
+                      color: Color(0xFFB91C1C),
                       size: 30,
                     ),
                     const SizedBox(height: 12),
@@ -158,7 +160,7 @@ class _DeviceManagementPageState extends State<DeviceManagementPage> {
                       _error!,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFF60716B),
+                        color: const Color(0xFF64748B),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -213,14 +215,14 @@ class _DeviceManagementPageState extends State<DeviceManagementPage> {
                                   ? Theme.of(
                                       context,
                                     ).primaryColor.withValues(alpha: 0.12)
-                                  : const Color(0xFFF2F5F1),
+                                  : const Color(0xFFF1F5F9),
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: Icon(
                               _iconForDevice(device.platform, device.userAgent),
                               color: device.isCurrent
                                   ? Theme.of(context).primaryColor
-                                  : const Color(0xFF60716B),
+                                  : const Color(0xFF64748B),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -283,11 +285,11 @@ class _DeviceManagementPageState extends State<DeviceManagementPage> {
                             onPressed: () => _logoutDevice(device),
                             icon: const Icon(
                               Icons.logout_rounded,
-                              color: Color(0xFFB85C38),
+                              color: Color(0xFFB91C1C),
                             ),
                             label: const Text(
                               '下线设备',
-                              style: TextStyle(color: Color(0xFFB85C38)),
+                              style: TextStyle(color: Color(0xFFB91C1C)),
                             ),
                           ),
                         ),
@@ -366,9 +368,20 @@ class _DeviceHeroCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFCF7),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.white, AppThemeScope.of(context).palette.background],
+        ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE4EAE4)),
+        border: Border.all(color: AppThemeScope.of(context).palette.outline),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D293B52),
+            blurRadius: 24,
+            offset: Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -376,7 +389,7 @@ class _DeviceHeroCard extends StatelessWidget {
           Text(
             'DEVICES',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: const Color(0xFFE58A3A),
+              color: AppThemeScope.of(context).palette.secondary,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.2,
             ),
@@ -386,7 +399,7 @@ class _DeviceHeroCard extends StatelessWidget {
             '当前共 $deviceCount 台设备登录中',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF16322C),
+              color: const Color(0xFF1E293B),
             ),
           ),
           const SizedBox(height: 6),
@@ -394,7 +407,7 @@ class _DeviceHeroCard extends StatelessWidget {
             '你可以在这里查看最近活跃设备，并将不再使用的设备下线。',
             style: Theme.of(
               context,
-            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF60716B)),
+            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
           ),
         ],
       ),
@@ -420,7 +433,7 @@ class _DeviceInfoLine extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: const Color(0xFF60716B),
+                color: const Color(0xFF64748B),
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -430,7 +443,7 @@ class _DeviceInfoLine extends StatelessWidget {
               value,
               style: Theme.of(
                 context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF16322C)),
+              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF1E293B)),
             ),
           ),
         ],
@@ -453,12 +466,19 @@ class _EmptyDevicesCard extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: const Color(0xFFE7F0EA),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppThemeScope.of(context).palette.outlineSoft,
+                    AppThemeScope.of(context).palette.outline,
+                  ],
+                ),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.devices_rounded,
-                color: Color(0xFF126A5A),
+                color: AppThemeScope.of(context).palette.primary,
                 size: 30,
               ),
             ),
@@ -475,7 +495,7 @@ class _EmptyDevicesCard extends StatelessWidget {
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF60716B)),
+              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
             ),
           ],
         ),

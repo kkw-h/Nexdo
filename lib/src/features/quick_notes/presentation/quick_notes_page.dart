@@ -11,6 +11,7 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../auth/data/auth_repository.dart' show AuthException;
 import '../data/quick_notes_repository.dart';
 import '../domain/entities/quick_note.dart';
@@ -980,7 +981,7 @@ class _QuickNoteCard extends StatelessWidget {
               .clamp(0, 1)
               .toDouble();
     return Card(
-      color: const Color(0xFFFFFCF7),
+      color: const Color(0xFFFFFFFF),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -992,7 +993,7 @@ class _QuickNoteCard extends StatelessWidget {
                   child: Text(
                     createdAtText,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: const Color(0xFF60716B),
+                      color: const Color(0xFF64748B),
                     ),
                   ),
                 ),
@@ -1006,7 +1007,7 @@ class _QuickNoteCard extends StatelessWidget {
                       tooltip: '删除闪念',
                       visualDensity: VisualDensity.compact,
                       splashRadius: 20,
-                      color: const Color(0xFF60716B),
+                      color: const Color(0xFF64748B),
                     ),
                   ),
                 ),
@@ -1024,7 +1025,7 @@ class _QuickNoteCard extends StatelessWidget {
               Text(
                 '仅保存了录音',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF60716B),
+                  color: const Color(0xFF64748B),
                 ),
               ),
             if (note.hasAudio) ...[
@@ -1049,8 +1050,12 @@ class _QuickNoteCard extends StatelessWidget {
                                 height: _actionButtonSize,
                                 decoration: BoxDecoration(
                                   color: isPlaying
-                                      ? const Color(0xFF1D7F5F)
-                                      : const Color(0xFFEAEFEA),
+                                      ? AppThemeScope.of(
+                                          context,
+                                        ).palette.secondary
+                                      : AppThemeScope.of(
+                                          context,
+                                        ).palette.chipBackground,
                                   borderRadius: BorderRadius.circular(
                                     _actionButtonSize / 2,
                                   ),
@@ -1062,7 +1067,9 @@ class _QuickNoteCard extends StatelessWidget {
                                   size: 18,
                                   color: isPlaying
                                       ? Colors.white
-                                      : const Color(0xFF35584C),
+                                      : AppThemeScope.of(
+                                          context,
+                                        ).palette.primary,
                                 ),
                               ),
                             ),
@@ -1083,10 +1090,12 @@ class _QuickNoteCard extends StatelessWidget {
                                   10,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF8FBF9),
+                                  color: const Color(0xFFF8FAFC),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: const Color(0xFFDCE6E1),
+                                    color: AppThemeScope.of(
+                                      context,
+                                    ).palette.outline,
                                   ),
                                 ),
                                 child: Column(
@@ -1097,7 +1106,9 @@ class _QuickNoteCard extends StatelessWidget {
                                         width: 28,
                                         height: 4,
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFFD9E4DF),
+                                          color: AppThemeScope.of(
+                                            context,
+                                          ).palette.outline,
                                           borderRadius: BorderRadius.circular(
                                             999,
                                           ),
@@ -1127,7 +1138,7 @@ class _QuickNoteCard extends StatelessWidget {
                                             .textTheme
                                             .bodySmall
                                             ?.copyWith(
-                                              color: const Color(0xFF60716B),
+                                              color: const Color(0xFF64748B),
                                               fontWeight: FontWeight.w600,
                                               fontSize: 11,
                                             ),
@@ -1185,7 +1196,7 @@ class _AudioWaveformStrip extends StatelessWidget {
                   curve: Curves.easeOut,
                   height: 4 + (bars[index] * 10),
                   decoration: BoxDecoration(
-                    color: _barColor((index + 1) / bars.length),
+                    color: _barColor(context, (index + 1) / bars.length),
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
@@ -1228,12 +1239,16 @@ class _AudioWaveformStrip extends StatelessWidget {
     return result;
   }
 
-  Color _barColor(double ratio) {
+  Color _barColor(BuildContext context, double ratio) {
     final played = ratio <= progress.clamp(0.0, 1.0);
     if (played) {
-      return active ? const Color(0xFF1D7F5F) : const Color(0xFF8FBBAA);
+      return active
+          ? AppThemeScope.of(context).palette.secondary
+          : AppThemeScope.of(context).palette.secondary.withValues(alpha: 0.45);
     }
-    return active ? const Color(0xFFB9D9CC) : const Color(0xFFD8E3DE);
+    return active
+        ? AppThemeScope.of(context).palette.outline
+        : AppThemeScope.of(context).palette.outline;
   }
 }
 
@@ -1243,7 +1258,7 @@ class _QuickNotesEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: const Color(0xFFFFFCF7),
+      color: const Color(0xFFFFFFFF),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
         child: Column(
@@ -1252,13 +1267,20 @@ class _QuickNotesEmptyState extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: const Color(0xFFFFE7D1),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppThemeScope.of(context).palette.outlineSoft,
+                    AppThemeScope.of(context).palette.outline,
+                  ],
+                ),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.bolt_rounded,
                 size: 30,
-                color: Color(0xFFE58A3A),
+                color: AppThemeScope.of(context).palette.secondary,
               ),
             ),
             const SizedBox(height: 16),
@@ -1274,7 +1296,7 @@ class _QuickNotesEmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF60716B)),
+              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
             ),
           ],
         ),
@@ -1292,7 +1314,7 @@ class _QuickNotesErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: const Color(0xFFFFFCF7),
+      color: const Color(0xFFFFFFFF),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
         child: Column(
@@ -1301,13 +1323,13 @@ class _QuickNotesErrorState extends StatelessWidget {
               width: 60,
               height: 60,
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF3EE),
+                color: const Color(0xFFFFF5F5),
                 borderRadius: BorderRadius.circular(18),
               ),
               child: const Icon(
                 Icons.cloud_off_rounded,
                 size: 28,
-                color: Color(0xFFB85C38),
+                color: Color(0xFFB91C1C),
               ),
             ),
             const SizedBox(height: 16),
@@ -1323,7 +1345,7 @@ class _QuickNotesErrorState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF60716B)),
+              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
             ),
             const SizedBox(height: 14),
             FilledButton.tonal(
@@ -1374,9 +1396,20 @@ class _QuickNotesHeroCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFCF7),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.white, AppThemeScope.of(context).palette.background],
+        ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE4EAE4)),
+        border: Border.all(color: AppThemeScope.of(context).palette.outline),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D293B52),
+            blurRadius: 24,
+            offset: Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1384,7 +1417,7 @@ class _QuickNotesHeroCard extends StatelessWidget {
           Text(
             'QUICK NOTES',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: const Color(0xFFE58A3A),
+              color: AppThemeScope.of(context).palette.secondary,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.2,
             ),
@@ -1393,7 +1426,7 @@ class _QuickNotesHeroCard extends StatelessWidget {
           Text(
             noteCount == 0 ? '随手记下刚出现的想法' : '已记录 $noteCount 条闪念',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: const Color(0xFF16322C),
+              color: const Color(0xFF1E293B),
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -1402,7 +1435,7 @@ class _QuickNotesHeroCard extends StatelessWidget {
             '点击右下角创建文字闪念，长按可直接进行语音记录。',
             style: Theme.of(
               context,
-            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF60716B)),
+            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
           ),
           const SizedBox(height: 16),
           Wrap(
@@ -1442,18 +1475,23 @@ class _QuickNotesMetricChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F6F2),
+        color: AppThemeScope.of(context).palette.chipBackground,
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppThemeScope.of(context).palette.outline),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: const Color(0xFF476058)),
+          Icon(
+            icon,
+            size: 14,
+            color: AppThemeScope.of(context).palette.primary,
+          ),
           const SizedBox(width: 6),
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: const Color(0xFF476058),
+              color: AppThemeScope.of(context).palette.primary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1496,9 +1534,9 @@ class _QuickNoteSkeletonAudioBlock extends StatelessWidget {
     return Container(
       height: 62,
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F6F5),
+        color: const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE0E8E4)),
+        border: Border.all(color: AppThemeScope.of(context).palette.outline),
       ),
       child: const Padding(
         padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1581,9 +1619,9 @@ class _BreathingPlaceholderState extends State<_BreathingPlaceholder>
               begin: begin,
               end: end,
               colors: const [
-                Color(0xFFE3ECE8),
-                Color(0xFFF5F9F7),
-                Color(0xFFE3ECE8),
+                Color(0xFFE8EEF6),
+                Color(0xFFF8FAFC),
+                Color(0xFFE8EEF6),
               ],
               stops: const [0.1, 0.5, 0.9],
             ),

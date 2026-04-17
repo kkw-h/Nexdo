@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../data/auth_repository.dart';
 
 class ChangePasswordPage extends StatefulWidget {
@@ -32,14 +33,15 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     return Scaffold(
       appBar: AppBar(title: const Text('修改密码')),
       body: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFE4EEE6), Color(0xFFF7F4EC)],
+            colors: [palette.outlineSoft, palette.background],
           ),
         ),
         child: SafeArea(
@@ -65,7 +67,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                         Text(
                           '修改后，下次登录需要使用新密码。为保证安全，请输入当前密码进行验证。',
                           style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: const Color(0xFF60716B)),
+                              ?.copyWith(color: const Color(0xFF64748B)),
                         ),
                         const SizedBox(height: 20),
                         TextFormField(
@@ -247,8 +249,15 @@ class _SecurityHeroCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
       decoration: BoxDecoration(
-        color: const Color(0xFF173A33),
+        color: AppThemeScope.of(context).palette.heroBackground,
         borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14293B52),
+            blurRadius: 28,
+            offset: Offset(0, 12),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -257,12 +266,12 @@ class _SecurityHeroCard extends StatelessWidget {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFE7D1),
+              color: AppThemeScope.of(context).palette.heroAvatarBackground,
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.lock_person_rounded,
-              color: Color(0xFF173A33),
+              color: AppThemeScope.of(context).palette.heroAvatarForeground,
             ),
           ),
           const SizedBox(height: 16),
@@ -276,9 +285,9 @@ class _SecurityHeroCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             '建议定期更换密码，并避免在多个平台重复使用同一组密码。',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFFC8D6D0)),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppThemeScope.of(context).palette.heroMutedText,
+            ),
           ),
         ],
       ),

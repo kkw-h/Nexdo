@@ -19,6 +19,13 @@
       },
       "versions": [
         {
+          "version": "1.0.16",
+          "date": "2026-04-17T03:34:39Z",
+          "localizedDescription": "Nexdo 1.0.16 发布",
+          "downloadURL": "https://github.com/kkw-h/Nexdo/releases/download/v1.0.16/Nexdo-AltStore-1.0.16.ipa",
+          "size": 33283917
+        },
+        {
           "version": "1.0.15",
           "date": "2026-04-17T00:31:56Z",
           "localizedDescription": "移除清单页面右上角刷新按钮，保留今日页面刷新入口。",

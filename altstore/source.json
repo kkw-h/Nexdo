@@ -19,6 +19,13 @@
       },
       "versions": [
         {
+          "version": "1.0.18",
+          "date": "2026-04-17T08:36:14Z",
+          "localizedDescription": "优化今日、清单、闪念、我的页面头部布局，并将主题外观收敛为晨雾薄荷。",
+          "downloadURL": "https://github.com/kkw-h/Nexdo/releases/download/v1.0.18/Nexdo-AltStore-1.0.18.ipa",
+          "size": 33291079
+        },
+        {
           "version": "1.0.17",
           "date": "2026-04-17T07:56:19Z",
           "localizedDescription": "基于 DESIGN.md 更新项目主题配色，新增 Editorial Mint 风格主题方案。",

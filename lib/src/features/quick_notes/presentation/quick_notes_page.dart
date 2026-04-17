@@ -20,10 +20,14 @@ class QuickNotesPage extends StatefulWidget {
   const QuickNotesPage({
     super.key,
     required this.repository,
+    this.diagnostics,
+    this.onDiagnosticsPressed,
     this.onDiagnosticsChanged,
   });
 
   final QuickNotesRepository repository;
+  final QuickNotesDiagnostics? diagnostics;
+  final VoidCallback? onDiagnosticsPressed;
   final ValueChanged<QuickNotesDiagnostics>? onDiagnosticsChanged;
 
   @override
@@ -370,6 +374,8 @@ class QuickNotesPageState extends State<QuickNotesPage> {
             noteCount: noteCount,
             voiceCount: voiceCount,
             isRefreshing: _refreshing,
+            diagnostics: widget.diagnostics,
+            onDiagnosticsPressed: widget.onDiagnosticsPressed,
           ),
           const SizedBox(height: 16),
           if (_loading)
@@ -1384,14 +1390,19 @@ class _QuickNotesHeroCard extends StatelessWidget {
     required this.noteCount,
     required this.voiceCount,
     required this.isRefreshing,
+    required this.diagnostics,
+    required this.onDiagnosticsPressed,
   });
 
   final int noteCount;
   final int voiceCount;
   final bool isRefreshing;
+  final QuickNotesDiagnostics? diagnostics;
+  final VoidCallback? onDiagnosticsPressed;
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
@@ -1414,13 +1425,23 @@ class _QuickNotesHeroCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'QUICK NOTES',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: AppThemeScope.of(context).palette.secondary,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'QUICK NOTES',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: palette.secondary,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+              _QuickNotesHealthButton(
+                diagnostics: diagnostics,
+                onPressed: onDiagnosticsPressed,
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Text(
@@ -1459,6 +1480,67 @@ class _QuickNotesHeroCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _QuickNotesHealthButton extends StatelessWidget {
+  const _QuickNotesHealthButton({
+    required this.diagnostics,
+    required this.onPressed,
+  });
+
+  final QuickNotesDiagnostics? diagnostics;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
+    final data = diagnostics;
+    final isDiagnosing = data?.diagnosing ?? false;
+    final hasMic = data?.microphonePermissionGranted == true;
+    final hasSpeech = data?.speechAvailable == true;
+    final hasInputDevice = (data?.inputDeviceLabels.length ?? 0) > 0;
+    final allHealthy = hasMic && hasSpeech && hasInputDevice;
+    final label = switch (data) {
+      null => '检测',
+      _ when isDiagnosing => '检测中...',
+      _ when allHealthy => '正常',
+      _ => '异常',
+    };
+    final foreground = allHealthy ? palette.secondary : const Color(0xFFB91C1C);
+    final border = allHealthy ? palette.outline : const Color(0xFFFECACA);
+
+    return TextButton.icon(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        minimumSize: const Size(0, 40),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        foregroundColor: foreground,
+        backgroundColor: allHealthy
+            ? palette.outlineSoft
+            : const Color(0xFFFFF5F5),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(999),
+          side: BorderSide(color: border),
+        ),
+      ),
+      icon: isDiagnosing
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(
+              allHealthy ? Icons.mic_rounded : Icons.warning_amber_rounded,
+              size: 16,
+            ),
+      label: Text(
+        label,
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
       ),
     );
   }

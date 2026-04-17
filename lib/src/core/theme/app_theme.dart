@@ -170,7 +170,7 @@ class AppThemeController extends ChangeNotifier {
   };
 
   final SharedPreferences _preferences;
-  AppThemePreset _preset = AppThemePreset.rational;
+  AppThemePreset _preset = AppThemePreset.mist;
 
   AppThemePreset get preset => _preset;
   AppThemePalette get palette => palettes[_preset]!;
@@ -184,10 +184,9 @@ class AppThemeController extends ChangeNotifier {
 
   void _restore() {
     final raw = _preferences.getString(_storageKey);
-    _preset = AppThemePreset.values.firstWhere(
-      (item) => item.name == raw,
-      orElse: () => AppThemePreset.rational,
-    );
+    _preset = raw == AppThemePreset.mist.name
+        ? AppThemePreset.mist
+        : AppThemePreset.mist;
   }
 
   Future<void> updatePreset(AppThemePreset preset) async {

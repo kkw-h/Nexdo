@@ -213,17 +213,18 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
       builder: (context, _) {
         final todayItems = controller.remindersForDate(DateTime.now());
         final pages = [
-          _buildTodayView(controller, todayItems),
-          _buildInboxView(controller),
+          _buildTodayView(
+            controller,
+            todayItems,
+            onRefresh: () => _refreshData(controller),
+            onOpenCalendar: () => _openCalendarPage(controller),
+          ),
+          _buildInboxView(
+            controller,
+            onOpenCalendar: () => _openCalendarPage(controller),
+          ),
           _buildQuickNotesView(_quickNotesRepository!),
           _buildProfileView(controller),
-        ];
-        final titles = ['今日', '清单', '闪念', '我的'];
-        final subtitles = [
-          '按时间处理今天的提醒，保持节奏清晰。',
-          '默认聚焦未完成事项，也支持组合查询。',
-          '随手记录想法、语音和短文本，不打断当前任务。',
-          '管理账号、设备与提醒工作区配置。',
         ];
         final fabLabel = _selectedNavIndex == 2 ? '闪念' : '新建';
         final fabIcon = _selectedNavIndex == 2
@@ -330,31 +331,6 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _TopBar(
-                          title: titles[_selectedNavIndex],
-                          subtitle: subtitles[_selectedNavIndex],
-                          onOpenCalendar: () => _openCalendarPage(controller),
-                          showCalendarButton:
-                              _selectedNavIndex == 0 || _selectedNavIndex == 1,
-                          onRefresh: _selectedNavIndex == 0
-                              ? () => _refreshData(controller)
-                              : null,
-                          isRefreshing: _selectedNavIndex == 0
-                              ? _refreshing
-                              : false,
-                          refreshCountdownLabel: _selectedNavIndex == 0
-                              ? _countdownLabel()
-                              : null,
-                          customTrailing: _selectedNavIndex == 2
-                              ? _QuickNotesStatusButton(
-                                  diagnostics: _quickNotesDiagnostics,
-                                  onPressed: _quickNotesPageKey
-                                      .currentState
-                                      ?.refreshDiagnostics,
-                                )
-                              : null,
-                        ),
-                        const SizedBox(height: 18),
                         Expanded(
                           child: IndexedStack(
                             index: _selectedNavIndex,
@@ -599,7 +575,10 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     await _runInboxQuery(controller);
   }
 
-  Widget _buildInboxView(ReminderController controller) {
+  Widget _buildInboxView(
+    ReminderController controller, {
+    required VoidCallback onOpenCalendar,
+  }) {
     final reminders = _sortReminders(
       _inboxQuery.isEmpty
           ? controller.reminders
@@ -641,6 +620,11 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                   _sortMode = mode;
                 });
               },
+            ),
+            const SizedBox(width: 12),
+            IconButton.filledTonal(
+              onPressed: onOpenCalendar,
+              icon: const Icon(Icons.calendar_month_rounded),
             ),
           ],
         ),
@@ -766,28 +750,30 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
 
   Widget _buildTodayView(
     ReminderController controller,
-    List<ReminderItem> todayItems,
-  ) {
+    List<ReminderItem> todayItems, {
+    required Future<void> Function() onRefresh,
+    required VoidCallback onOpenCalendar,
+  }) {
     final orderedItems = _sortReminders(todayItems);
     final pendingCount = orderedItems.where((item) => !item.isCompleted).length;
+    final palette = AppThemeScope.of(context).palette;
+    final countdownLabel = _countdownLabel();
 
     return RefreshIndicator(
-      onRefresh: () => _refreshData(controller),
+      onRefresh: onRefresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
+          _OverviewHeroCard(
+            eyebrow: 'TODAY',
+            title: '$pendingCount 条待处理',
+            subtitle: orderedItems.isEmpty
+                ? '今天还没有排程，先加一条提醒开始。'
+                : '按时间顺序梳理今天最重要的事项。',
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: _OverviewHeroCard(
-                  eyebrow: 'TODAY',
-                  title: '$pendingCount 条待处理',
-                  subtitle: orderedItems.isEmpty
-                      ? '今天还没有排程，先加一条提醒开始。'
-                      : '按时间顺序梳理今天最重要的事项。',
-                ),
-              ),
-              const SizedBox(width: 12),
               _SortButton(
                 mode: _sortMode,
                 onChanged: (mode) {
@@ -795,6 +781,37 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                     _sortMode = mode;
                   });
                 },
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: _refreshing ? null : onRefresh,
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(0, 44),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  foregroundColor: palette.secondary,
+                  backgroundColor: palette.outlineSoft,
+                ),
+                icon: _refreshing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded, size: 16),
+                label: Text(
+                  countdownLabel == null ? '刷新' : '刷新 · $countdownLabel',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              const SizedBox(width: 12),
+              IconButton.filledTonal(
+                onPressed: onOpenCalendar,
+                icon: const Icon(Icons.calendar_month_rounded),
               ),
             ],
           ),
@@ -827,6 +844,8 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     return QuickNotesPage(
       key: _quickNotesPageKey,
       repository: repository,
+      diagnostics: _quickNotesDiagnostics,
+      onDiagnosticsPressed: _quickNotesPageKey.currentState?.refreshDiagnostics,
       onDiagnosticsChanged: (diagnostics) {
         if (!mounted) {
           return;
@@ -930,14 +949,13 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                ...AppThemePreset.values.map(
-                  (preset) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _ThemePresetTile(
-                      palette: AppThemeController.palettes[preset]!,
-                      selected: themeController.preset == preset,
-                      onTap: () => themeController.updatePreset(preset),
-                    ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _ThemePresetTile(
+                    palette: AppThemeController.palettes[AppThemePreset.mist]!,
+                    selected: true,
+                    onTap: () =>
+                        themeController.updatePreset(AppThemePreset.mist),
                   ),
                 ),
               ],
@@ -1232,181 +1250,6 @@ class _ThemePresetTile extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _TopBar extends StatelessWidget {
-  const _TopBar({
-    required this.title,
-    required this.subtitle,
-    required this.onOpenCalendar,
-    required this.showCalendarButton,
-    required this.onRefresh,
-    required this.isRefreshing,
-    required this.refreshCountdownLabel,
-    this.customTrailing,
-  });
-
-  final String title;
-  final String subtitle;
-  final VoidCallback onOpenCalendar;
-  final bool showCalendarButton;
-  final VoidCallback? onRefresh;
-  final bool isRefreshing;
-  final String? refreshCountdownLabel;
-  final Widget? customTrailing;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppThemeScope.of(context).palette;
-    final countdownText = refreshCountdownLabel == null
-        ? '刷新'
-        : '刷新 · $refreshCountdownLabel';
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 18, 14, 14),
-      decoration: BoxDecoration(
-        color: palette.surface,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: palette.outline),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D293B52),
-            blurRadius: 24,
-            offset: Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: palette.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  subtitle,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: palette.textMuted),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            children: [
-              if (customTrailing != null)
-                customTrailing!
-              else if (onRefresh != null)
-                TextButton.icon(
-                  onPressed: isRefreshing ? null : onRefresh,
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(0, 44),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    foregroundColor: palette.secondary,
-                    backgroundColor: palette.outlineSoft,
-                  ),
-                  icon: isRefreshing
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.refresh_rounded, size: 16),
-                  label: Text(
-                    countdownText,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              if (showCalendarButton)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: IconButton.filledTonal(
-                    onPressed: onOpenCalendar,
-                    icon: const Icon(Icons.calendar_month_rounded),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickNotesStatusButton extends StatelessWidget {
-  const _QuickNotesStatusButton({
-    required this.diagnostics,
-    required this.onPressed,
-  });
-
-  final QuickNotesDiagnostics? diagnostics;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppThemeScope.of(context).palette;
-    final data = diagnostics;
-    final isDiagnosing = data?.diagnosing ?? false;
-    final hasMic = data?.microphonePermissionGranted == true;
-    final hasSpeech = data?.speechAvailable == true;
-    final hasInputDevice = (data?.inputDeviceLabels.length ?? 0) > 0;
-    final allHealthy = hasMic && hasSpeech && hasInputDevice;
-    final label = switch (data) {
-      null => '检测',
-      _ when isDiagnosing => '检测中...',
-      _ when allHealthy => '正常',
-      _ => '异常',
-    };
-    final foreground = allHealthy ? palette.secondary : const Color(0xFFB91C1C);
-    final border = allHealthy ? palette.outline : const Color(0xFFFECACA);
-    final icon = isDiagnosing
-        ? const SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          )
-        : Icon(
-            allHealthy ? Icons.mic_rounded : Icons.warning_amber_rounded,
-            size: 16,
-          );
-
-    return TextButton.icon(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        minimumSize: const Size(0, 44),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        foregroundColor: foreground,
-        backgroundColor: allHealthy
-            ? palette.outlineSoft
-            : const Color(0xFFFFF5F5),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(999),
-          side: BorderSide(color: border),
-        ),
-      ),
-      icon: icon,
-      label: Text(
-        label,
-        style: Theme.of(
-          context,
-        ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
       ),
     );
   }

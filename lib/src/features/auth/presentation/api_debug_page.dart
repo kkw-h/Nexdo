@@ -41,76 +41,120 @@ class _ApiDebugPageState extends State<ApiDebugPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('接口调试工具')),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFE4EEE6), Color(0xFFF7F4EC)],
+          ),
+        ),
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
             children: [
-              Text('当前接口地址', style: theme.textTheme.titleMedium),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _baseUrlController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: '例如：https://api.example.com/api/v1',
-                ),
-                enabled: !_loading,
-              ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: OutlinedButton.icon(
-                  onPressed: _loading ? null : _applyBaseUrl,
-                  icon: const Icon(Icons.save_alt_rounded, size: 18),
-                  label: const Text('应用地址'),
+              const _ApiDebugHeroCard(),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('当前接口地址', style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _baseUrlController,
+                        decoration: const InputDecoration(
+                          hintText: '例如：https://api.example.com/api/v1',
+                        ),
+                        enabled: !_loading,
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: OutlinedButton.icon(
+                          onPressed: _loading ? null : _applyBaseUrl,
+                          icon: const Icon(Icons.save_alt_rounded, size: 18),
+                          label: const Text('应用地址'),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '用于验证 Flutter 到 Nexdo API 的连通性。可以修改上方地址并点击应用，再触发 `GET /health` 查看结果。',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: const Color(0xFF60716B),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      FilledButton.icon(
+                        onPressed: _loading ? null : _testHealth,
+                        icon: _loading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.monitor_heart_rounded),
+                        label: Text(_loading ? '请求中…' : '测试 GET /health'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
-              Text(
-                '用于验证 Flutter 到 Nexdo API 的连通性。可以修改上方地址并点击应用，再触发 `GET /health` 查看结果。',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF60716B),
-                ),
-              ),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: _loading ? null : _testHealth,
-                icon: _loading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.monitor_heart_rounded),
-                label: Text(_loading ? '请求中…' : '测试 GET /health'),
-              ),
-              const SizedBox(height: 20),
-              if (_timestamp != null)
-                Text(
-                  '最近一次请求：${_timestamp!.toLocal()}',
-                  style: theme.textTheme.bodySmall,
-                ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF111111).withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: SingleChildScrollView(
-                      child: SelectableText(
-                        _result ?? _error ?? '尚未发起请求。当前地址：$_activeBaseUrl',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: _error != null
-                              ? theme.colorScheme.error
-                              : theme.colorScheme.onSurface,
-                          fontFamily: 'monospace',
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '响应结果',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          if (_timestamp != null)
+                            Text(
+                              '最近一次：${_timestamp!.toLocal()}',
+                              style: theme.textTheme.bodySmall,
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        constraints: const BoxConstraints(minHeight: 220),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF173A33),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: SingleChildScrollView(
+                            child: SelectableText(
+                              _result ??
+                                  _error ??
+                                  '尚未发起请求。\n当前地址：$_activeBaseUrl',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: _error != null
+                                    ? const Color(0xFFFFC9B8)
+                                    : const Color(0xFFE8F0EB),
+                                fontFamily: 'monospace',
+                                height: 1.5,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ),
@@ -166,5 +210,49 @@ class _ApiDebugPageState extends State<ApiDebugPage> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('已切换到 $candidate')));
+  }
+}
+
+class _ApiDebugHeroCard extends StatelessWidget {
+  const _ApiDebugHeroCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF173A33),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFE7D1),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Icon(Icons.route_rounded, color: Color(0xFF173A33)),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '调试 API 连通性',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '适合快速验证接口地址、健康检查结果和基础网络响应。',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFFC8D6D0)),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -19,6 +19,13 @@
       },
       "versions": [
         {
+          "version": "1.0.20",
+          "date": "2026-04-18T03:03:38Z",
+          "localizedDescription": "更新默认接口域名为 nexdo.kkworld.top。",
+          "downloadURL": "https://github.com/kkw-h/Nexdo/releases/download/v1.0.20/Nexdo-AltStore-1.0.20.ipa",
+          "size": 33293609
+        },
+        {
           "version": "1.0.19",
           "date": "2026-04-17T10:50:36Z",
           "localizedDescription": "统一循环提醒完成逻辑，并为今日页面增加下拉整表刷新。",

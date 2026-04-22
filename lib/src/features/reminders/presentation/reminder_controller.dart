@@ -20,6 +20,7 @@ class ReminderController extends ChangeNotifier {
     groups: [],
     tags: [],
   );
+  final Map<String, ReminderItem> _stickyTodayRecurringCompletions = {};
 
   bool _isLoading = true;
   bool _syncInProgress = false;
@@ -38,6 +39,7 @@ class ReminderController extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     _workspace = await _repository.seedIfEmpty();
+    _pruneStickyTodayRecurringCompletions();
     await _notificationService.syncAll(_workspace.reminders);
     _isLoading = false;
     notifyListeners();
@@ -68,11 +70,23 @@ class ReminderController extends ChangeNotifier {
   }
 
   List<ReminderItem> remindersForDate(DateTime date) {
-    return _workspace.reminders.where((item) {
+    final remindersForDay = _workspace.reminders.where((item) {
       return item.dueAt.year == date.year &&
           item.dueAt.month == date.month &&
           item.dueAt.day == date.day;
     }).toList();
+    if (!_isSameDay(date, DateTime.now())) {
+      return remindersForDay;
+    }
+
+    _pruneStickyTodayRecurringCompletions();
+    final visibleIds = remindersForDay.map((item) => item.id).toSet();
+    for (final sticky in _stickyTodayRecurringCompletions.values) {
+      if (!visibleIds.contains(sticky.id)) {
+        remindersForDay.add(sticky);
+      }
+    }
+    return remindersForDay;
   }
 
   List<ReminderItem> remindersForList(String listId, ReminderFilter filter) {
@@ -97,21 +111,43 @@ class ReminderController extends ChangeNotifier {
     return _workspace.tags.where((tag) => ids.contains(tag.id)).toList();
   }
 
-  Future<void> saveReminder(ReminderItem reminder) async {
+  Future<ReminderSaveResult> saveReminder(ReminderItem reminder) async {
     final result = await _repository.saveReminder(reminder);
     _workspace = result.workspace;
+    _pruneStickyTodayRecurringCompletions();
     await _notificationService.scheduleForReminder(result.reminder);
     notifyListeners();
+    return result;
   }
 
   Future<void> toggleCompletion(ReminderItem reminder, bool isCompleted) async {
-    await saveReminder(
-      reminder.copyWith(isCompleted: isCompleted, updatedAt: DateTime.now()),
+    final updatedReminder = reminder.copyWith(
+      isCompleted: isCompleted,
+      updatedAt: DateTime.now(),
     );
+    final result = await saveReminder(updatedReminder);
+
+    if (reminder.repeatRule == ReminderRepeatRule.none) {
+      _stickyTodayRecurringCompletions.remove(reminder.id);
+      notifyListeners();
+      return;
+    }
+
+    if (isCompleted && reminder.isDueToday) {
+      _stickyTodayRecurringCompletions[reminder.id] = updatedReminder;
+    } else {
+      _stickyTodayRecurringCompletions.remove(reminder.id);
+    }
+
+    if (result.reminder.isDueToday) {
+      _stickyTodayRecurringCompletions.remove(reminder.id);
+    }
+    notifyListeners();
   }
 
   Future<void> removeReminder(String id) async {
     _workspace = await _repository.deleteReminder(id);
+    _stickyTodayRecurringCompletions.remove(id);
     await _notificationService.cancelReminder(id);
     notifyListeners();
   }
@@ -236,6 +272,7 @@ class ReminderController extends ChangeNotifier {
         forceBootstrap: forceBootstrap,
       );
       _workspace = workspace;
+      _pruneStickyTodayRecurringCompletions();
       await _notificationService.syncAll(_workspace.reminders);
       _updateNextSyncTime();
       notifyListeners();
@@ -262,5 +299,16 @@ class ReminderController extends ChangeNotifier {
     if (notify) {
       notifyListeners();
     }
+  }
+
+  void _pruneStickyTodayRecurringCompletions() {
+    final now = DateTime.now();
+    _stickyTodayRecurringCompletions.removeWhere(
+      (_, item) => !_isSameDay(item.dueAt, now),
+    );
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 }

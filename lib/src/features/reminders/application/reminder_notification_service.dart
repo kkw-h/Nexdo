@@ -71,10 +71,17 @@ class ReminderNotificationService {
     final notificationId = _notificationId(reminder.id);
     await _plugin.cancel(notificationId);
 
+    final remindBeforeMinutes = reminder.remindBeforeMinutes ?? 0;
+    final scheduledAt = reminder.dueAt.subtract(
+      Duration(minutes: remindBeforeMinutes),
+    );
+
     if (!reminder.notificationEnabled ||
         reminder.isCompleted ||
         !reminder.hasSpecificTime ||
-        reminder.dueAt.isBefore(DateTime.now())) {
+        scheduledAt.isBefore(DateTime.now()) ||
+        (reminder.repeatEndAt != null &&
+            reminder.dueAt.isAfter(reminder.repeatEndAt!))) {
       return;
     }
 
@@ -82,7 +89,7 @@ class ReminderNotificationService {
       notificationId,
       reminder.title,
       reminder.note?.isNotEmpty == true ? reminder.note : '提醒时间到了',
-      tz.TZDateTime.from(reminder.dueAt, tz.local),
+      tz.TZDateTime.from(scheduledAt, tz.local),
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'reminder_channel',
@@ -95,7 +102,7 @@ class ReminderNotificationService {
         macOS: DarwinNotificationDetails(),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: _matchDateTimeComponents(reminder.repeatRule),
+      matchDateTimeComponents: _matchDateTimeComponents(reminder),
     );
   }
 
@@ -107,8 +114,11 @@ class ReminderNotificationService {
     return id.hashCode & 0x7fffffff;
   }
 
-  DateTimeComponents? _matchDateTimeComponents(ReminderRepeatRule rule) {
-    switch (rule) {
+  DateTimeComponents? _matchDateTimeComponents(ReminderItem reminder) {
+    if (reminder.repeatEndAt != null) {
+      return null;
+    }
+    switch (reminder.repeatRule) {
       case ReminderRepeatRule.none:
         return null;
       case ReminderRepeatRule.daily:

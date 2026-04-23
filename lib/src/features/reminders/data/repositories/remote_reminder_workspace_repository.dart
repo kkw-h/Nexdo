@@ -466,6 +466,31 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
       return DateTime.parse(normalized);
     }
 
+    DateTime? parseNullableDate(List<String> keys) {
+      for (final key in keys) {
+        final value = map[key] as String?;
+        if (value == null || value.isEmpty) {
+          continue;
+        }
+        final normalized = value.replaceFirst(
+          RegExp(r'(Z|[+-]\d{2}:\d{2})$'),
+          '',
+        );
+        return DateTime.parse(normalized);
+      }
+      return null;
+    }
+
+    int? parseNullableInt(List<String> keys) {
+      for (final key in keys) {
+        final value = map[key];
+        if (value is num) {
+          return value.toInt();
+        }
+      }
+      return null;
+    }
+
     return ReminderItem(
       id: map['id'] as String,
       title: map['title'] as String,
@@ -481,6 +506,16 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
       repeatRule: ReminderRepeatRuleX.fromStorage(
         map['repeat_rule'] as String?,
       ),
+      repeatEndAt: parseNullableDate(const [
+        'repeat_end_at',
+        'repeat_until_at',
+        'repeat_until',
+      ]),
+      remindBeforeMinutes: parseNullableInt(const [
+        'remind_before_minutes',
+        'notification_before_minutes',
+        'notify_before_minutes',
+      ]),
     );
   }
 
@@ -580,6 +615,10 @@ class RemoteReminderWorkspaceRepository implements ReminderWorkspaceRepository {
       'tag_ids': reminder.tagIds,
       'notification_enabled': reminder.notificationEnabled,
       'repeat_rule': reminder.repeatRule.storageValue,
+      'repeat_end_at': reminder.repeatEndAt == null
+          ? null
+          : formatDate(reminder.repeatEndAt!),
+      'remind_before_minutes': reminder.remindBeforeMinutes,
       'is_completed': reminder.isCompleted,
     };
   }

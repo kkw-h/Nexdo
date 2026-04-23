@@ -106,7 +106,7 @@ extension ReminderRepeatRuleX on ReminderRepeatRule {
   String get storageValue {
     switch (this) {
       case ReminderRepeatRule.restday:
-        return 'restday';
+        return 'non_workday';
       default:
         return name;
     }
@@ -121,6 +121,7 @@ extension ReminderRepeatRuleX on ReminderRepeatRule {
       case 'business_day':
         return ReminderRepeatRule.workday;
       case 'restday':
+      case 'non_workday':
       case 'rest_day':
       case 'weekend':
       case 'holiday':
@@ -330,6 +331,8 @@ class ReminderItem {
     required this.notificationEnabled,
     required this.repeatRule,
     this.note,
+    this.repeatEndAt,
+    this.remindBeforeMinutes,
   });
 
   final String id;
@@ -344,6 +347,8 @@ class ReminderItem {
   final List<String> tagIds;
   final bool notificationEnabled;
   final ReminderRepeatRule repeatRule;
+  final DateTime? repeatEndAt;
+  final int? remindBeforeMinutes;
 
   ReminderItem copyWith({
     String? id,
@@ -358,7 +363,11 @@ class ReminderItem {
     List<String>? tagIds,
     bool? notificationEnabled,
     ReminderRepeatRule? repeatRule,
+    DateTime? repeatEndAt,
+    int? remindBeforeMinutes,
     bool clearNote = false,
+    bool clearRepeatEndAt = false,
+    bool clearRemindBeforeMinutes = false,
   }) {
     return ReminderItem(
       id: id ?? this.id,
@@ -373,6 +382,10 @@ class ReminderItem {
       tagIds: tagIds ?? this.tagIds,
       notificationEnabled: notificationEnabled ?? this.notificationEnabled,
       repeatRule: repeatRule ?? this.repeatRule,
+      repeatEndAt: clearRepeatEndAt ? null : (repeatEndAt ?? this.repeatEndAt),
+      remindBeforeMinutes: clearRemindBeforeMinutes
+          ? null
+          : (remindBeforeMinutes ?? this.remindBeforeMinutes),
     );
   }
 
@@ -406,10 +419,20 @@ class ReminderItem {
       'tagIds': tagIds,
       'notificationEnabled': notificationEnabled,
       'repeatRule': repeatRule.storageValue,
+      'repeatEndAt': repeatEndAt?.toIso8601String(),
+      'remindBeforeMinutes': remindBeforeMinutes,
     };
   }
 
   factory ReminderItem.fromMap(Map<String, dynamic> map) {
+    DateTime? parseNullableDate(String key) {
+      final value = map[key] as String?;
+      if (value == null || value.isEmpty) {
+        return null;
+      }
+      return DateTime.parse(value);
+    }
+
     return ReminderItem(
       id: map['id'] as String,
       title: map['title'] as String,
@@ -423,6 +446,8 @@ class ReminderItem {
       tagIds: (map['tagIds'] as List<dynamic>? ?? []).cast<String>(),
       notificationEnabled: map['notificationEnabled'] as bool? ?? true,
       repeatRule: ReminderRepeatRuleX.fromStorage(map['repeatRule'] as String?),
+      repeatEndAt: parseNullableDate('repeatEndAt'),
+      remindBeforeMinutes: (map['remindBeforeMinutes'] as num?)?.toInt(),
     );
   }
 }

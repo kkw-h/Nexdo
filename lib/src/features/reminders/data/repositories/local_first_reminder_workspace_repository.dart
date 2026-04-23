@@ -82,6 +82,7 @@ class LocalFirstReminderWorkspaceRepository
           tagIds: const ['tag-urgent', 'tag-deep'],
           notificationEnabled: true,
           repeatRule: ReminderRepeatRule.weekly,
+          remindBeforeMinutes: 10,
         ),
         ReminderItem(
           id: 'seed-2',
@@ -96,6 +97,7 @@ class LocalFirstReminderWorkspaceRepository
           tagIds: const ['tag-team'],
           notificationEnabled: true,
           repeatRule: ReminderRepeatRule.daily,
+          remindBeforeMinutes: 5,
         ),
         ReminderItem(
           id: 'seed-3',
@@ -110,6 +112,7 @@ class LocalFirstReminderWorkspaceRepository
           tagIds: const ['tag-team'],
           notificationEnabled: true,
           repeatRule: ReminderRepeatRule.none,
+          remindBeforeMinutes: 0,
         ),
       ],
     );

@@ -111,14 +111,20 @@ class NexdoApiClient {
     if (fields != null && fields.isNotEmpty) {
       request.fields.addAll(fields);
     }
-    if (fileFieldName != null &&
-        filePath != null &&
-        filePath.isNotEmpty &&
-        File(filePath).existsSync()) {
+    if (fileFieldName != null && filePath != null && filePath.isNotEmpty) {
+      final normalizedPath = _normalizeLocalPath(filePath);
+      final file = File(normalizedPath);
+      if (!file.existsSync()) {
+        throw ApiException(
+          statusCode: -1,
+          message: '本地录音文件不存在，无法上传',
+          details: normalizedPath,
+        );
+      }
       request.files.add(
         await http.MultipartFile.fromPath(
           fileFieldName,
-          filePath,
+          normalizedPath,
           contentType: fileContentType,
         ),
       );
@@ -145,6 +151,13 @@ class NexdoApiClient {
 
     final response = await http.Response.fromStream(streamedResponse);
     return _decodeResponse(response);
+  }
+
+  String _normalizeLocalPath(String path) {
+    if (path.startsWith('file://')) {
+      return Uri.parse(path).toFilePath();
+    }
+    return path;
   }
 
   Future<Uint8List> downloadBytes({

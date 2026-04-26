@@ -52,13 +52,7 @@ class _AuthPageState extends State<AuthPage> {
 
     return Scaffold(
       body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [palette.outlineSoft, palette.background],
-          ),
-        ),
+        decoration: BoxDecoration(color: palette.background),
         child: SafeArea(
           child: Center(
             child: ConstrainedBox(
@@ -70,92 +64,35 @@ class _AuthPageState extends State<AuthPage> {
                 child: SingleChildScrollView(
                   child: Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                            height: 46,
+                            width: 46,
                             decoration: BoxDecoration(
-                              color: palette.heroBackground,
-                              borderRadius: BorderRadius.circular(22),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x14293B52),
-                                  blurRadius: 28,
-                                  offset: Offset(0, 12),
-                                ),
-                              ],
+                              color: palette.primaryContainer,
+                              borderRadius: BorderRadius.circular(14),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  height: 54,
-                                  width: 54,
-                                  decoration: BoxDecoration(
-                                    color: palette.heroAvatarBackground,
-                                    borderRadius: BorderRadius.circular(18),
-                                  ),
-                                  child: Icon(
-                                    Icons.task_alt_rounded,
-                                    color: palette.heroAvatarForeground,
-                                  ),
-                                ),
-                                const SizedBox(height: 18),
-                                Text(
-                                  isRegister ? '开始建立你的任务空间' : '欢迎回到 Nexdo',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineSmall
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.w800,
-                                        color: Colors.white,
-                                      ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  isRegister
-                                      ? '一个地方管理提醒、清单和闪念，让日程与想法保持同步。'
-                                      : '登录后继续处理提醒、记录闪念并维护你的任务系统。',
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(color: palette.heroMutedText),
-                                ),
-                                const SizedBox(height: 16),
-                                const Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    _AuthFeatureChip(
-                                      icon: Icons.notifications_active_rounded,
-                                      label: '提醒同步',
-                                    ),
-                                    _AuthFeatureChip(
-                                      icon: Icons.bolt_rounded,
-                                      label: '闪念速记',
-                                    ),
-                                    _AuthFeatureChip(
-                                      icon: Icons.view_list_rounded,
-                                      label: '清单分组',
-                                    ),
-                                  ],
-                                ),
-                              ],
+                            child: Icon(
+                              Icons.task_alt_rounded,
+                              color: palette.primary,
                             ),
                           ),
-                          const SizedBox(height: 22),
+                          const SizedBox(height: 18),
                           Text(
-                            isRegister ? '创建你的 Nexdo 账号' : '登录 Nexdo',
+                            isRegister ? '创建账号' : '登录 Nexdo',
                             style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(fontWeight: FontWeight.w800),
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: palette.onSurface,
+                                ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           Text(
-                            isRegister
-                                ? '注册后即可直接连接 Nexdo API，同步提醒与闪念数据。'
-                                : '输入你的账号信息，继续管理提醒、清单、闪念和日历安排。',
+                            isRegister ? '使用邮箱创建新账号' : '继续使用你的账号',
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(color: palette.textMuted),
                           ),
@@ -168,7 +105,7 @@ class _AuthPageState extends State<AuthPage> {
                               });
                             },
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 18),
                           Form(
                             key: _formKey,
                             child: Column(
@@ -293,7 +230,7 @@ class _AuthPageState extends State<AuthPage> {
                                   : Text(isRegister ? '注册并进入' : '登录'),
                             ),
                           ),
-                          const SizedBox(height: 14),
+                          const SizedBox(height: 12),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -315,22 +252,16 @@ class _AuthPageState extends State<AuthPage> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '账号体系已连接 Nexdo API，登录/注册将直接访问云端接口。',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: const Color(0xFF94A3B8)),
-                          ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 10),
                           Align(
                             alignment: Alignment.centerRight,
-                            child: OutlinedButton.icon(
+                            child: TextButton.icon(
                               onPressed: _submitting ? null : _openDebugPage,
                               icon: const Icon(
                                 Icons.bug_report_outlined,
                                 size: 18,
                               ),
-                              label: const Text('接口调试'),
+                              label: const Text('调试'),
                             ),
                           ),
                         ],
@@ -455,43 +386,6 @@ class _AuthModeSegmentedControl extends StatelessWidget {
             onSelectionChanged: (selection) => onChanged(selection.first),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _AuthFeatureChip extends StatelessWidget {
-  const _AuthFeatureChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0x26FFFFFF),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0x30FFFFFF)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 14,
-            color: AppThemeScope.of(context).palette.heroAvatarBackground,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppThemeScope.of(context).palette.heroAvatarBackground,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
       ),
     );
   }

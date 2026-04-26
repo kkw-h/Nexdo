@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -53,13 +54,22 @@ class QuickNotesRepository {
     List<double>? waveformSamples,
   }) async {
     final trimmedContent = content.trim();
-    final hasAudio = audioPath != null && audioPath.isNotEmpty;
+    final normalizedAudioPath = _normalizeLocalPath(audioPath);
+    final hasAudio =
+        normalizedAudioPath != null && normalizedAudioPath.isNotEmpty;
     if (trimmedContent.isEmpty && !hasAudio) {
       throw const AuthException('请先输入内容或录制语音');
     }
 
     final dynamic data;
     if (hasAudio) {
+      final audioFile = File(normalizedAudioPath);
+      if (!audioFile.existsSync()) {
+        throw AuthException('录音文件不存在，未能完成保存: $normalizedAudioPath');
+      }
+      developer.log(
+        '[QuickNotes] upload audio path=$normalizedAudioPath size=${audioFile.lengthSync()} duration=$audioDurationMillis waveform=${waveformSamples?.length ?? 0} contentLength=${trimmedContent.length}',
+      );
       data = await _authorizedMultipartRequest(
         path: '/quick-notes',
         fields: {
@@ -67,11 +77,15 @@ class QuickNotesRepository {
           if (audioDurationMillis != null)
             'audio_duration_ms': audioDurationMillis.toString(),
           if (waveformSamples != null && waveformSamples.isNotEmpty)
-            'waveform_samples': jsonEncode(waveformSamples),
+            'waveform_samples': jsonEncode(
+              waveformSamples
+                  .map((value) => (value * 100).round().clamp(0, 100))
+                  .toList(),
+            ),
         },
         fileFieldName: 'audio',
-        filePath: audioPath,
-        fileContentType: _audioMediaType(audioPath),
+        filePath: normalizedAudioPath,
+        fileContentType: _audioMediaType(normalizedAudioPath),
       );
     } else {
       data = await _authorizedRequest(
@@ -81,10 +95,8 @@ class QuickNotesRepository {
       );
     }
 
-    final saved = QuickNote.fromMap(
-      data as Map<String, dynamic>,
-    ).copyWith(
-      audioPath: hasAudio ? audioPath : null,
+    final saved = QuickNote.fromMap(data as Map<String, dynamic>).copyWith(
+      audioPath: hasAudio ? normalizedAudioPath : null,
       waveformSamples: waveformSamples,
     );
     final notes = [...(_cache ?? await _localDataSource.readNotes())]
@@ -97,6 +109,48 @@ class QuickNotesRepository {
     await _authorizedRequest(method: 'DELETE', path: '/quick-notes/$id');
     final notes = [...(_cache ?? await _localDataSource.readNotes())]
       ..removeWhere((item) => item.id == id);
+    return _replaceCache(notes);
+  }
+
+  Future<List<QuickNote>> updateNote({
+    required String id,
+    String? content,
+    String? status,
+    List<double>? waveformSamples,
+  }) async {
+    final body = <String, dynamic>{};
+    if (content != null) {
+      body['content'] = content.trim();
+    }
+    if (status != null && status.isNotEmpty) {
+      body['status'] = status;
+    }
+    if (waveformSamples != null) {
+      body['waveform_samples'] = waveformSamples;
+    }
+    if (body.isEmpty) {
+      return _cache ?? await _localDataSource.readNotes();
+    }
+
+    final data = await _authorizedRequest(
+      method: 'PATCH',
+      path: '/quick-notes/$id',
+      body: body,
+    );
+    final saved = QuickNote.fromMap(data as Map<String, dynamic>);
+    final notes = [...(_cache ?? await _localDataSource.readNotes())];
+    final index = notes.indexWhere((item) => item.id == saved.id);
+    if (index == -1) {
+      notes.insert(0, saved);
+    } else {
+      notes[index] = notes[index].copyWith(
+        text: saved.text,
+        status: saved.status,
+        updatedAt: saved.updatedAt,
+        waveformSamples: saved.waveformSamples,
+        convertedReminderId: saved.convertedReminderId,
+      );
+    }
     return _replaceCache(notes);
   }
 
@@ -202,7 +256,12 @@ class QuickNotesRepository {
         }
         throw const AuthException('登录已失效，请重新登录', shouldLogout: true);
       }
-      throw AuthException(error.message ?? '上传闪念录音失败');
+      final details = error.details?.toString().trim();
+      final message = error.message?.trim();
+      if (details != null && details.isNotEmpty) {
+        throw AuthException('${message ?? '上传闪念录音失败'}: $details');
+      }
+      throw AuthException(message ?? '上传闪念录音失败');
     }
   }
 
@@ -256,5 +315,15 @@ class QuickNotesRepository {
       return 'wav';
     }
     return 'm4a';
+  }
+
+  String? _normalizeLocalPath(String? path) {
+    if (path == null || path.isEmpty) {
+      return path;
+    }
+    if (path.startsWith('file://')) {
+      return Uri.parse(path).toFilePath();
+    }
+    return path;
   }
 }

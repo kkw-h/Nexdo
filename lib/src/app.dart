@@ -4,48 +4,17 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/auth_gate.dart';
 
-class NexdoApp extends StatefulWidget {
+class NexdoApp extends StatelessWidget {
   const NexdoApp({super.key});
 
   @override
-  State<NexdoApp> createState() => _NexdoAppState();
-}
-
-class _NexdoAppState extends State<NexdoApp> {
-  AppThemeController? _themeController;
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeTheme();
-  }
-
-  Future<void> _initializeTheme() async {
-    final controller = await AppThemeController.create();
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _themeController = controller;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final controller = _themeController;
-    if (controller == null) {
-      return const MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: Scaffold(body: Center(child: CircularProgressIndicator())),
-      );
-    }
+    const palette = AppThemeScope.prototypePalette;
 
     return AppThemeScope(
-      controller: controller,
-      child: AnimatedBuilder(
-        animation: controller,
-        builder: (context, _) {
-          final palette = controller.palette;
+      palette: palette,
+      child: Builder(
+        builder: (context) {
           final colorScheme =
               ColorScheme.fromSeed(
                 seedColor: palette.primary,

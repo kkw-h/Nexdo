@@ -20,6 +20,16 @@ abstract class AccessTokenProvider {
   Future<String?> refreshAccessToken();
 }
 
+class AuthDeviceListResult {
+  const AuthDeviceListResult({
+    required this.devices,
+    required this.currentDeviceId,
+  });
+
+  final List<Map<String, dynamic>> devices;
+  final String? currentDeviceId;
+}
+
 class AuthRepository implements AccessTokenProvider {
   AuthRepository({
     required SharedPreferences preferences,
@@ -259,7 +269,7 @@ class AuthRepository implements AccessTokenProvider {
     throw const AuthException('用户信息格式错误');
   }
 
-  Future<List<Map<String, dynamic>>> getDevices() async {
+  Future<AuthDeviceListResult> getDevices() async {
     final session = await _ensureValidSession();
     if (session == null) {
       throw const AuthException('登录已失效，请重新登录', shouldLogout: true);
@@ -273,12 +283,18 @@ class AuthRepository implements AccessTokenProvider {
       defaultMessage: '获取设备列表失败',
     );
     if (data is List) {
-      return List<Map<String, dynamic>>.from(data);
+      return AuthDeviceListResult(
+        devices: List<Map<String, dynamic>>.from(data),
+        currentDeviceId: null,
+      );
     }
     if (data is Map<String, dynamic> && data['devices'] is List) {
-      return List<Map<String, dynamic>>.from(data['devices'] as List);
+      return AuthDeviceListResult(
+        devices: List<Map<String, dynamic>>.from(data['devices'] as List),
+        currentDeviceId: data['current_device_id']?.toString(),
+      );
     }
-    return [];
+    return const AuthDeviceListResult(devices: [], currentDeviceId: null);
   }
 
   Future<void> logoutDevice(String deviceId) async {

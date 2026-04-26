@@ -587,11 +587,13 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
 
   Future<List<AuthDevice>> _loadProfileDevices() async {
     final identity = await DeviceIdentityProvider.instance.ensureIdentity();
-    final data = await widget.authRepository.getDevices();
-    final devices = data.map((e) {
+    final result = await widget.authRepository.getDevices();
+    final devices = result.devices.map((e) {
+      final backendCurrentId = result.currentDeviceId;
       final mapDeviceId = e['device_id']?.toString();
-      final inferredCurrent =
-          mapDeviceId != null && mapDeviceId == identity.deviceId;
+      final inferredCurrent = backendCurrentId != null
+          ? mapDeviceId != null && mapDeviceId == backendCurrentId
+          : mapDeviceId != null && mapDeviceId == identity.deviceId;
       return AuthDevice.fromMap(e, isCurrent: inferredCurrent);
     }).toList();
     devices.sort((a, b) {

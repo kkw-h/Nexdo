@@ -35,11 +35,13 @@ class _DeviceManagementPageState extends State<DeviceManagementPage> {
 
     try {
       final identity = await DeviceIdentityProvider.instance.ensureIdentity();
-      final data = await widget.repository.getDevices();
-      final devices = data.map((e) {
+      final result = await widget.repository.getDevices();
+      final devices = result.devices.map((e) {
+        final backendCurrentId = result.currentDeviceId;
         final mapDeviceId = e['device_id']?.toString();
-        final inferredCurrent =
-            mapDeviceId != null && mapDeviceId == identity.deviceId;
+        final inferredCurrent = backendCurrentId != null
+            ? mapDeviceId != null && mapDeviceId == backendCurrentId
+            : mapDeviceId != null && mapDeviceId == identity.deviceId;
         return AuthDevice.fromMap(e, isCurrent: inferredCurrent);
       }).toList();
       // Sort devices: current first, then by lastActiveAt descending

@@ -7,6 +7,22 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../domain/entities/reminder_models.dart';
 
+class ReminderNotificationPermissionState {
+  const ReminderNotificationPermissionState({
+    required this.enabled,
+    this.alertEnabled,
+    this.badgeEnabled,
+    this.soundEnabled,
+    this.provisionalEnabled = false,
+  });
+
+  final bool enabled;
+  final bool? alertEnabled;
+  final bool? badgeEnabled;
+  final bool? soundEnabled;
+  final bool provisionalEnabled;
+}
+
 class ReminderNotificationService {
   ReminderNotificationService(this._plugin);
 
@@ -31,10 +47,10 @@ class ReminderNotificationService {
     );
 
     await _plugin.initialize(settings);
-    await _requestPermissions();
+    await requestPermissions();
   }
 
-  Future<void> _requestPermissions() async {
+  Future<void> requestPermissions() async {
     if (Platform.isIOS) {
       await _plugin
           .resolvePlatformSpecificImplementation<
@@ -58,6 +74,58 @@ class ReminderNotificationService {
           >()
           ?.requestPermissions(alert: true, badge: true, sound: true);
     }
+  }
+
+  Future<ReminderNotificationPermissionState> getPermissionState() async {
+    if (Platform.isIOS) {
+      final permissions = await _plugin
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >()
+          ?.checkPermissions();
+      return ReminderNotificationPermissionState(
+        enabled: permissions?.isEnabled ?? false,
+        alertEnabled: permissions?.isAlertEnabled,
+        badgeEnabled: permissions?.isBadgeEnabled,
+        soundEnabled: permissions?.isSoundEnabled,
+        provisionalEnabled: permissions?.isProvisionalEnabled ?? false,
+      );
+    }
+
+    if (Platform.isMacOS) {
+      final permissions = await _plugin
+          .resolvePlatformSpecificImplementation<
+            MacOSFlutterLocalNotificationsPlugin
+          >()
+          ?.checkPermissions();
+      return ReminderNotificationPermissionState(
+        enabled: permissions?.isEnabled ?? false,
+        alertEnabled: permissions?.isAlertEnabled,
+        badgeEnabled: permissions?.isBadgeEnabled,
+        soundEnabled: permissions?.isSoundEnabled,
+        provisionalEnabled: permissions?.isProvisionalEnabled ?? false,
+      );
+    }
+
+    if (Platform.isAndroid) {
+      final enabled = await _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.areNotificationsEnabled();
+      return ReminderNotificationPermissionState(enabled: enabled ?? false);
+    }
+
+    return const ReminderNotificationPermissionState(enabled: false);
+  }
+
+  Future<int> pendingRequestCount() async {
+    final requests = await _plugin.pendingNotificationRequests();
+    return requests.length;
+  }
+
+  Future<void> clearPendingNotifications() async {
+    await _plugin.cancelAllPendingNotifications();
   }
 
   Future<void> syncAll(Iterable<ReminderItem> reminders) async {

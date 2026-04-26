@@ -27,6 +27,7 @@ import '../data/repositories/remote_reminder_workspace_repository.dart';
 import '../domain/entities/reminder_models.dart';
 import 'reminder_controller.dart';
 import 'reminder_form_page.dart';
+import 'reminder_notification_settings_page.dart';
 
 class ReminderAppShell extends StatefulWidget {
   const ReminderAppShell({
@@ -56,6 +57,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
   final GlobalKey<QuickNotesPageState> _quickNotesPageKey =
       GlobalKey<QuickNotesPageState>();
   ReminderController? _controller;
+  ReminderNotificationService? _notificationService;
   QuickNoteLocalDataSource? _quickNoteDataSource;
   QuickNotesRepository? _quickNotesRepository;
   QuickNotesDiagnostics? _quickNotesDiagnostics;
@@ -90,6 +92,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     setState(() {
       _error = null;
       _controller = null;
+      _notificationService = null;
       _refreshCountdown = 0;
     });
     await initializeDateFormatting('zh_CN');
@@ -113,6 +116,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
 
       setState(() {
         _controller = controller;
+        _notificationService = notificationService;
         _quickNoteDataSource = QuickNoteLocalDataSource(
           preferences,
           userId: widget.currentUser.id,
@@ -1343,20 +1347,17 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
   }
 
   Future<void> _openNotificationSettingsInfo() async {
-    if (!mounted) {
+    final controller = _controller;
+    final notificationService = _notificationService;
+    if (!mounted || controller == null || notificationService == null) {
       return;
     }
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('通知与提醒设置'),
-        content: const Text('当前版本的提醒通知开关在新建/编辑提醒时设置。\n\n系统级通知权限请在设备系统设置中打开。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('知道了'),
-          ),
-        ],
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ReminderNotificationSettingsPage(
+          controller: controller,
+          notificationService: notificationService,
+        ),
       ),
     );
   }

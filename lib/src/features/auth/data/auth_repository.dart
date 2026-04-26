@@ -275,6 +275,9 @@ class AuthRepository implements AccessTokenProvider {
     if (data is List) {
       return List<Map<String, dynamic>>.from(data);
     }
+    if (data is Map<String, dynamic> && data['devices'] is List) {
+      return List<Map<String, dynamic>>.from(data['devices'] as List);
+    }
     return [];
   }
 

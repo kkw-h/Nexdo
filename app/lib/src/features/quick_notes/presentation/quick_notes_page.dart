@@ -12,6 +12,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/app_ui_primitives.dart';
 import '../../auth/data/auth_repository.dart' show AuthException;
 import '../data/quick_notes_repository.dart';
 import '../domain/entities/quick_note.dart';
@@ -458,7 +459,7 @@ class QuickNotesPageState extends State<QuickNotesPage> {
           value: 'edit',
           height: 48,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: _QuickNoteMenuItem(
+          child: AppPopupMenuRow(
             icon: Icons.edit_outlined,
             label: '编辑',
             textStyle: textTheme.bodyMedium?.copyWith(
@@ -471,7 +472,7 @@ class QuickNotesPageState extends State<QuickNotesPage> {
           value: 'delete',
           height: 48,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: _QuickNoteMenuItem(
+          child: AppPopupMenuRow(
             icon: Icons.delete_outline_rounded,
             label: '删除',
             iconColor: const Color(0xFFEF4444),
@@ -599,8 +600,10 @@ class QuickNotesPageState extends State<QuickNotesPage> {
                 ),
               ),
               const Spacer(),
-              _QuickNotesSortButton(
-                isRefreshing: _refreshing,
+              AppSortTriggerButton(
+                leadingIcon: _refreshing
+                    ? Icons.sync_rounded
+                    : Icons.swap_vert_rounded,
                 label: _sortMode.label,
                 onTap: () => _showSortMenu(context),
               ),
@@ -714,65 +717,61 @@ class _QuickNoteTextSheetState extends State<_QuickNoteTextSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final palette = AppThemeScope.of(context).palette;
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 20, 20, bottomInset + 20),
-      child: Material(
-        color: palette.surface,
-        borderRadius: BorderRadius.circular(24),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _controller,
-                autofocus: true,
-                minLines: 5,
-                maxLines: 8,
-                decoration: InputDecoration(
-                  hintText: '输入你的想法、待办或灵感',
-                  filled: true,
-                  fillColor: palette.outlineSoft,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: palette.primary, width: 1.2),
+      child: AppSheetContainer(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.title,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              minLines: 5,
+              maxLines: 8,
+              decoration: InputDecoration(
+                hintText: '输入你的想法、待办或灵感',
+                filled: true,
+                fillColor: AppThemeScope.of(context).palette.outlineSoft,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: AppThemeScope.of(context).palette.primary,
+                    width: 1.2,
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('取消'),
-                  ),
-                  const Spacer(),
-                  FilledButton(
-                    onPressed: () =>
-                        Navigator.of(context).pop(_controller.text),
-                    child: Text(widget.actionLabel),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('取消'),
+                ),
+                const Spacer(),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(_controller.text),
+                  child: Text(widget.actionLabel),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -1432,36 +1431,30 @@ class _QuickNotesStatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FFFC),
+        color: palette.successContainer.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFD5F5E6)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D293B52),
-            blurRadius: 20,
-            offset: Offset(0, 8),
-          ),
-        ],
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _QuickNotesStatItem(label: '今日记录', value: todayCount),
-          ),
-          Expanded(
-            child: _QuickNotesStatItem(label: '本周记录', value: weekCount),
-          ),
-          Expanded(
-            child: _QuickNotesStatItem(label: '本月记录', value: monthCount),
-          ),
-          Expanded(
-            child: _QuickNotesStatItem(label: '累计记录', value: noteCount),
-          ),
-        ],
+      child: AppSurfaceCard(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: _QuickNotesStatItem(label: '今日记录', value: todayCount),
+            ),
+            Expanded(
+              child: _QuickNotesStatItem(label: '本周记录', value: weekCount),
+            ),
+            Expanded(
+              child: _QuickNotesStatItem(label: '本月记录', value: monthCount),
+            ),
+            Expanded(
+              child: _QuickNotesStatItem(label: '累计记录', value: noteCount),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1537,125 +1530,52 @@ class _QuickNotesDiagnosticsCard extends StatelessWidget {
       _ => '检测到录音或识别服务异常，点击查看详情',
     };
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onDiagnosticsPressed,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0D293B52),
-                blurRadius: 20,
-                offset: Offset(0, 8),
-              ),
-            ],
+    return AppSurfaceCard(
+      onTap: onDiagnosticsPressed,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: palette.successContainer.withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Icon(
+              isDiagnosing
+                  ? Icons.graphic_eq_rounded
+                  : Icons.multitrack_audio_rounded,
+              color: iconColor,
+              size: 22,
+            ),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE9FBF2),
-                  borderRadius: BorderRadius.circular(20),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '录音权限与诊断',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: palette.onSurface,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
-                child: Icon(
-                  isDiagnosing
-                      ? Icons.graphic_eq_rounded
-                      : Icons.multitrack_audio_rounded,
-                  color: iconColor,
-                  size: 22,
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: palette.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '录音权限与诊断',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: palette.onSurface,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: palette.textMuted,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: palette.textMuted,
-                size: 24,
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickNotesSortButton extends StatelessWidget {
-  const _QuickNotesSortButton({
-    required this.isRefreshing,
-    required this.label,
-    required this.onTap,
-  });
-
-  final bool isRefreshing;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppThemeScope.of(context).palette;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isRefreshing ? Icons.sync_rounded : Icons.swap_vert_rounded,
-                size: 18,
-                color: palette.textMuted,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: palette.textMuted,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(width: 2),
-              Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 18,
-                color: palette.textMuted,
-              ),
-            ],
-          ),
-        ),
+          const SizedBox(width: 12),
+          Icon(Icons.chevron_right_rounded, color: palette.textMuted, size: 24),
+        ],
       ),
     );
   }
@@ -1701,20 +1621,8 @@ class _QuickNoteCard extends StatelessWidget {
               .toDouble();
     final hasAudio = note.hasAudio;
 
-    return Container(
-      width: double.infinity,
+    return AppSurfaceCard(
       padding: const EdgeInsets.fromLTRB(16, 16, 14, 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D293B52),
-            blurRadius: 20,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1730,7 +1638,9 @@ class _QuickNoteCard extends StatelessWidget {
                           width: 44,
                           height: 44,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE7F8EE),
+                            color: palette.successContainer.withValues(
+                              alpha: 0.45,
+                            ),
                             borderRadius: BorderRadius.circular(22),
                           ),
                           child: Icon(
@@ -1831,7 +1741,7 @@ class _QuickNoteCard extends StatelessWidget {
                     margin: const EdgeInsets.only(top: 14),
                     padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FBFF),
+                      color: palette.surfaceContainerLow,
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Column(
@@ -1844,7 +1754,9 @@ class _QuickNoteCard extends StatelessWidget {
                                 width: 34,
                                 height: 34,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFE7F8EE),
+                                  color: palette.successContainer.withValues(
+                                    alpha: 0.45,
+                                  ),
                                   borderRadius: BorderRadius.circular(17),
                                 ),
                                 child: Icon(
@@ -1932,50 +1844,10 @@ class _QuickNoteTypeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8F8EF),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        hasAudio ? '语音' : '文本',
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: const Color(0xFF22A466),
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickNoteMenuItem extends StatelessWidget {
-  const _QuickNoteMenuItem({
-    required this.icon,
-    required this.label,
-    required this.textStyle,
-    this.iconColor,
-  });
-
-  final IconData icon;
-  final String label;
-  final TextStyle? textStyle;
-  final Color? iconColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppThemeScope.of(context).palette;
-    return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: iconColor ?? palette.textMuted),
-          const SizedBox(width: 10),
-          Expanded(child: Text(label, style: textStyle)),
-        ],
-      ),
+    return AppInlineChip(
+      label: hasAudio ? '语音' : '文本',
+      textColor: Color(0xFF22A466),
+      backgroundColor: Color(0xFFE8F8EF),
     );
   }
 }
@@ -1990,19 +1862,10 @@ class _QuickNoteDurationChip extends StatelessWidget {
     final minutes = duration.inMinutes;
     final seconds = duration.inSeconds % 60;
     final text = '$minutes:${seconds.toString().padLeft(2, '0')}';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0F4F7),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        text,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: const Color(0xFF8A97A7),
-          fontWeight: FontWeight.w800,
-        ),
-      ),
+    return AppInlineChip(
+      label: text,
+      textColor: const Color(0xFF8A97A7),
+      backgroundColor: const Color(0xFFF0F4F7),
     );
   }
 }
@@ -2092,50 +1955,10 @@ class _QuickNotesEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: const Color(0xFFFFFFFF),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-        child: Column(
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppThemeScope.of(context).palette.outlineSoft,
-                    AppThemeScope.of(context).palette.outline,
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Icon(
-                Icons.bolt_rounded,
-                size: 30,
-                color: AppThemeScope.of(context).palette.secondary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '还没有闪念',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '点击右下角按钮输入文字，或长按按钮直接开始语音记录。',
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
-            ),
-          ],
-        ),
-      ),
+    return const AppStateEmptyCard(
+      icon: Icons.bolt_rounded,
+      title: '还没有闪念',
+      subtitle: '点击右下角按钮输入文字，或长按按钮直接开始语音记录。',
     );
   }
 }
@@ -2148,48 +1971,11 @@ class _QuickNotesErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: const Color(0xFFFFFFFF),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-        child: Column(
-          children: [
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF5F5),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const Icon(
-                Icons.cloud_off_rounded,
-                size: 28,
-                color: Color(0xFFB91C1C),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '闪念加载失败',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 14),
-            FilledButton.tonal(
-              onPressed: () => unawaited(onRetry()),
-              child: const Text('重新加载'),
-            ),
-          ],
-        ),
-      ),
+    return AppStateErrorCard(
+      title: '闪念加载失败',
+      message: message,
+      actionLabel: '重新加载',
+      onPressed: onRetry,
     );
   }
 }
@@ -2219,21 +2005,19 @@ class _QuickNoteSkeletonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            _QuickNoteSkeletonBar(widthFactor: 0.24, height: 14),
-            SizedBox(height: 16),
-            _QuickNoteSkeletonBar(widthFactor: 0.78, height: 18),
-            SizedBox(height: 10),
-            _QuickNoteSkeletonBar(widthFactor: 0.56, height: 18),
-            SizedBox(height: 14),
-            _QuickNoteSkeletonAudioBlock(),
-          ],
-        ),
+    return AppSurfaceCard(
+      padding: const EdgeInsets.all(16),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _QuickNoteSkeletonBar(widthFactor: 0.24, height: 14),
+          SizedBox(height: 16),
+          _QuickNoteSkeletonBar(widthFactor: 0.78, height: 18),
+          SizedBox(height: 10),
+          _QuickNoteSkeletonBar(widthFactor: 0.56, height: 18),
+          SizedBox(height: 14),
+          _QuickNoteSkeletonAudioBlock(),
+        ],
       ),
     );
   }
@@ -2244,12 +2028,13 @@ class _QuickNoteSkeletonAudioBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     return Container(
       height: 62,
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: palette.surfaceContainerLow,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppThemeScope.of(context).palette.outline),
+        border: Border.all(color: palette.outline),
       ),
       child: const Padding(
         padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -2279,70 +2064,7 @@ class _QuickNoteSkeletonBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FractionallySizedBox(
-      widthFactor: widthFactor,
-      alignment: Alignment.centerLeft,
-      child: _BreathingPlaceholder(
-        borderRadius: BorderRadius.circular(999),
-        child: SizedBox(height: height),
-      ),
-    );
-  }
-}
-
-class _BreathingPlaceholder extends StatefulWidget {
-  const _BreathingPlaceholder({
-    required this.child,
-    required this.borderRadius,
-  });
-
-  final Widget child;
-  final BorderRadius borderRadius;
-
-  @override
-  State<_BreathingPlaceholder> createState() => _BreathingPlaceholderState();
-}
-
-class _BreathingPlaceholderState extends State<_BreathingPlaceholder>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1400),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      child: widget.child,
-      builder: (context, child) {
-        final progress = _controller.value;
-        final begin = Alignment(-1.8 + (2.6 * progress), 0);
-        final end = Alignment(-0.8 + (2.6 * progress), 0);
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: widget.borderRadius,
-            gradient: LinearGradient(
-              begin: begin,
-              end: end,
-              colors: const [
-                Color(0xFFE8EEF6),
-                Color(0xFFF8FAFC),
-                Color(0xFFE8EEF6),
-              ],
-              stops: const [0.1, 0.5, 0.9],
-            ),
-          ),
-          child: child,
-        );
-      },
-    );
+    return AppSkeletonBar(widthFactor: widthFactor, height: height);
   }
 }
 

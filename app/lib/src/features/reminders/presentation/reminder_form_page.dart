@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/app_ui_primitives.dart';
 import '../domain/entities/reminder_models.dart';
 
 enum ReminderFormAction { save, delete }
@@ -152,6 +154,7 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     final lists = _sortedLists();
     final groups = _sortedGroups();
     final formBody = GestureDetector(
@@ -170,11 +173,11 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                 onSave: _submit,
               ),
               const SizedBox(height: 18),
-              _FormSectionCard(
+              AppSurfaceCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _SectionTitle(label: '标题', required: true),
+                    const AppSectionTitle(label: '标题', required: true),
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: _titleController,
@@ -191,14 +194,14 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                         contentPadding: EdgeInsets.zero,
                         hintStyle: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(
-                              color: const Color(0xFFB6C0CD),
+                              color: palette.textMuted.withValues(alpha: 0.55),
                               fontWeight: FontWeight.w600,
                             ),
                       ),
                       style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(
                             fontWeight: FontWeight.w700,
-                            color: const Color(0xFF1F2937),
+                            color: palette.onSurface,
                             height: 1.3,
                           ),
                       validator: (value) {
@@ -209,14 +212,14 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                       },
                     ),
                     const SizedBox(height: 10),
-                    const Divider(height: 1, color: Color(0xFFEAEFF3)),
+                    Divider(height: 1, color: palette.outlineSoft),
                     const SizedBox(height: 10),
                     Align(
                       alignment: Alignment.centerRight,
                       child: Text(
                         '${_titleController.text.characters.length}/60',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: const Color(0xFF94A3B8),
+                          color: palette.textMuted,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -225,19 +228,19 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              _FormSectionCard(
+              AppSurfaceCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _SectionTitle(label: '日期与时间', required: true),
+                    const AppSectionTitle(label: '日期与时间', required: true),
                     const SizedBox(height: 14),
-                    _SelectionRow(
+                    AppSelectionRow(
                       icon: Icons.calendar_today_outlined,
                       value: _formattedDateLabel(),
                       onTap: _pickDateOnly,
                     ),
-                    const Divider(height: 28, color: Color(0xFFEAEFF3)),
-                    _SelectionRow(
+                    Divider(height: 28, color: palette.outlineSoft),
+                    AppSelectionRow(
                       icon: Icons.access_time_rounded,
                       value: _hasSpecificTime ? _formattedTimeText() : '全天',
                       onTap: _pickTimeOnly,
@@ -246,11 +249,11 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              _FormSectionCard(
+              AppSurfaceCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _SectionHeaderRow(
+                    AppSectionHeaderRow(
                       title: '循环规则',
                       trailing: _repeatRule.label,
                     ),
@@ -258,7 +261,7 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                       const SizedBox(height: 12),
                       _RepeatSummaryBanner(label: _repeatRuleDescription()),
                       const SizedBox(height: 14),
-                      _StaticValueRow(
+                      AppDisclosureRow(
                         label: '循环截止',
                         value: _formatRepeatEndLabel(),
                         onTap: _pickRepeatEndDate,
@@ -270,7 +273,7 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                       runSpacing: 10,
                       children: [
                         for (final item in _visibleRepeatRules())
-                          _RepeatChip(
+                          AppChoiceChip(
                             label: item.label,
                             selected: _repeatRule == item,
                             onTap: () {
@@ -285,11 +288,11 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              _FormSectionCard(
+              AppSurfaceCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _SectionTitle(label: '清单'),
+                    const AppSectionTitle(label: '清单'),
                     const SizedBox(height: 14),
                     if (lists.isEmpty)
                       const _EmptyChoiceState(label: '暂无清单')
@@ -299,7 +302,7 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                         runSpacing: 10,
                         children: [
                           for (final item in lists)
-                            _SingleChoiceChip(
+                            AppChoiceChip(
                               label: item.name,
                               selected: _selectedListId == item.id,
                               onTap: () {
@@ -314,11 +317,11 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                 ),
               ),
               const SizedBox(height: 12),
-              _FormSectionCard(
+              AppSurfaceCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _SectionTitle(label: '分组'),
+                    const AppSectionTitle(label: '分组'),
                     const SizedBox(height: 14),
                     if (groups.isEmpty)
                       const _EmptyChoiceState(label: '暂无分组')
@@ -328,7 +331,7 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                         runSpacing: 10,
                         children: [
                           for (final item in groups)
-                            _SingleChoiceChip(
+                            AppChoiceChip(
                               label: item.name,
                               selected: _selectedGroupId == item.id,
                               onTap: () {
@@ -343,26 +346,26 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                 ),
               ),
               const SizedBox(height: 12),
-              _FormSectionCard(
+              AppSurfaceCard(
                 onTap: widget.availableTags.isEmpty ? null : _openTagSelector,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _SectionTitle(label: '标签'),
+                    const AppSectionTitle(label: '标签'),
                     const SizedBox(height: 14),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: _selectedTagIds.isEmpty
                           ? [
-                              _TagPill(
+                              AppTagPill(
                                 label: '未选择',
-                                textColor: const Color(0xFF94A3B8),
-                                backgroundColor: const Color(0xFFF8FAFC),
+                                textColor: palette.textMuted,
+                                backgroundColor: palette.surfaceContainerLow,
                               ),
                             ]
                           : _selectedTags().map((tag) {
-                              return _TagPill(
+                              return AppTagPill(
                                 label: tag.name,
                                 textColor: _tagColor(tag),
                                 backgroundColor: _tagColor(
@@ -375,11 +378,11 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              _FormSectionCard(
+              AppSurfaceCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _SectionHeaderRow(
+                    AppSectionHeaderRow(
                       title: '提醒设置',
                       icon: Icons.notifications_none_rounded,
                       trailing: _notificationEnabled ? '准时提醒' : '提醒关闭',
@@ -396,14 +399,14 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                                 style: Theme.of(context).textTheme.titleMedium
                                     ?.copyWith(
                                       fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF111827),
+                                      color: palette.onSurface,
                                     ),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 '开启后，将在到达时间时提醒',
                                 style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(color: const Color(0xFF94A3B8)),
+                                    ?.copyWith(color: palette.textMuted),
                               ),
                             ],
                           ),
@@ -420,8 +423,8 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                         ),
                       ],
                     ),
-                    const Divider(height: 28, color: Color(0xFFEAEFF3)),
-                    _StaticValueRow(
+                    Divider(height: 28, color: palette.outlineSoft),
+                    AppDisclosureRow(
                       label: '提前提醒',
                       value: _formatRemindBeforeLabel(),
                       onTap: _notificationEnabled
@@ -432,11 +435,11 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              _FormSectionCard(
+              AppSurfaceCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _SectionTitle(label: '备注'),
+                    const AppSectionTitle(label: '备注'),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _noteController,
@@ -455,14 +458,14 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                         contentPadding: EdgeInsets.zero,
                         hintStyle: Theme.of(context).textTheme.bodyLarge
                             ?.copyWith(
-                              color: const Color(0xFFB6C0CD),
+                              color: palette.textMuted.withValues(alpha: 0.55),
                               fontWeight: FontWeight.w600,
                               height: 1.5,
                             ),
                       ),
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         height: 1.5,
-                        color: const Color(0xFF1F2937),
+                        color: palette.onSurface,
                       ),
                       onChanged: (_) => setState(() {}),
                     ),
@@ -472,7 +475,7 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                       child: Text(
                         '${_noteController.text.characters.length}/200',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: const Color(0xFF94A3B8),
+                          color: palette.textMuted,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -482,7 +485,7 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
               ),
               if (_isEditing) ...[
                 const SizedBox(height: 16),
-                _FormSectionCard(
+                AppSurfaceCard(
                   child: _CreateInfoSection(
                     createdAt: widget.initialReminder!.createdAt,
                     updatedAt: widget.initialReminder!.updatedAt,
@@ -501,7 +504,7 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
 
     return Scaffold(
       body: DecoratedBox(
-        decoration: const BoxDecoration(color: Color(0xFFF8FAFC)),
+        decoration: BoxDecoration(color: palette.background),
         child: SafeArea(
           child: Stack(
             children: [
@@ -532,7 +535,7 @@ class _ReminderFormPageState extends State<ReminderFormPage> {
                 left: 16,
                 right: 16,
                 bottom: 20,
-                child: _BottomSaveBar(label: '保存', onPressed: _submit),
+                child: AppPrimaryBottomButton(label: '保存', onPressed: _submit),
               ),
             ],
           ),
@@ -920,13 +923,14 @@ class _FormNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     return Row(
       children: [
         IconButton(
           onPressed: onClose,
           icon: Icon(
             isEditing ? Icons.arrow_back_rounded : Icons.close_rounded,
-            color: const Color(0xFF111827),
+            color: palette.onSurface,
           ),
         ),
         Expanded(
@@ -935,19 +939,17 @@ class _FormNavBar extends StatelessWidget {
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF111827),
+              color: palette.onSurface,
             ),
           ),
         ),
         if (onDelete != null)
           TextButton(
             onPressed: onDelete,
+            style: TextButton.styleFrom(foregroundColor: palette.error),
             child: const Text(
               '删除',
-              style: TextStyle(
-                color: Color(0xFFEF4444),
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w700),
             ),
           )
         else
@@ -958,8 +960,8 @@ class _FormNavBar extends StatelessWidget {
           child: FilledButton(
             onPressed: onSave,
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF19B365),
-              foregroundColor: Colors.white,
+              backgroundColor: palette.primary,
+              foregroundColor: palette.onPrimary,
               padding: const EdgeInsets.symmetric(horizontal: 18),
               minimumSize: const Size(0, 36),
               shape: RoundedRectangleBorder(
@@ -977,207 +979,6 @@ class _FormNavBar extends StatelessWidget {
   }
 }
 
-class _FormSectionCard extends StatelessWidget {
-  const _FormSectionCard({required this.child, this.onTap});
-
-  final Widget child;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final card = Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A0F172A),
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: child,
-    );
-    if (onTap == null) {
-      return card;
-    }
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: card,
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.label, this.required = false});
-
-  final String label;
-  final bool required;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.titleMedium?.copyWith(
-      color: const Color(0xFF111827),
-      fontWeight: FontWeight.w700,
-    );
-    return Row(
-      children: [
-        Text(label, style: style),
-        if (required)
-          Text(' *', style: style?.copyWith(color: const Color(0xFFEF4444))),
-      ],
-    );
-  }
-}
-
-class _SectionHeaderRow extends StatelessWidget {
-  const _SectionHeaderRow({
-    required this.title,
-    required this.trailing,
-    this.icon,
-  });
-
-  final String title;
-  final String trailing;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        if (icon != null) ...[
-          Icon(icon, color: const Color(0xFF374151), size: 20),
-          const SizedBox(width: 8),
-        ],
-        Expanded(
-          child: Text(
-            title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF111827),
-            ),
-          ),
-        ),
-        Text(
-          trailing,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: const Color(0xFF6B7280),
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(width: 4),
-        const Icon(
-          Icons.chevron_right_rounded,
-          size: 18,
-          color: Color(0xFF94A3B8),
-        ),
-      ],
-    );
-  }
-}
-
-class _SelectionRow extends StatelessWidget {
-  const _SelectionRow({
-    required this.icon,
-    required this.value,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String value;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Row(
-            children: [
-              Icon(icon, size: 20, color: const Color(0xFF4B5563)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  value,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: const Color(0xFF1F2937),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                size: 20,
-                color: Color(0xFF94A3B8),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SingleChoiceChip extends StatelessWidget {
-  const _SingleChoiceChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? const Color(0xFFE9FBF1) : Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected
-                  ? const Color(0xFF19B365)
-                  : const Color(0xFFE5E7EB),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: selected
-                      ? const Color(0xFF19B365)
-                      : const Color(0xFF6B7280),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _EmptyChoiceState extends StatelessWidget {
   const _EmptyChoiceState({required this.label});
 
@@ -1185,10 +986,11 @@ class _EmptyChoiceState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     return Text(
       label,
       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-        color: const Color(0xFF94A3B8),
+        color: palette.textMuted,
         fontWeight: FontWeight.w600,
       ),
     );
@@ -1202,11 +1004,12 @@ class _RepeatSummaryBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3FBF6),
+        color: palette.successContainer.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -1215,142 +1018,18 @@ class _RepeatSummaryBanner extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF4B5563),
+                color: palette.onSurface.withValues(alpha: 0.75),
                 height: 1.5,
               ),
             ),
           ),
           const SizedBox(width: 10),
-          const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF374151)),
-        ],
-      ),
-    );
-  }
-}
-
-class _RepeatChip extends StatelessWidget {
-  const _RepeatChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? const Color(0xFFE9FBF1) : Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected
-                  ? const Color(0xFF19B365)
-                  : const Color(0xFFE5E7EB),
-            ),
-          ),
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: selected
-                  ? const Color(0xFF19B365)
-                  : const Color(0xFF4B5563),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TagPill extends StatelessWidget {
-  const _TagPill({
-    required this.label,
-    required this.textColor,
-    required this.backgroundColor,
-  });
-
-  final String label;
-  final Color textColor;
-  final Color backgroundColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: textColor,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _StaticValueRow extends StatelessWidget {
-  const _StaticValueRow({required this.label, required this.value, this.onTap});
-
-  final String label;
-  final String value;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final content = Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF111827),
-            ),
-          ),
-        ),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: const Color(0xFF94A3B8),
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        if (onTap != null) ...[
-          const SizedBox(width: 4),
-          const Icon(
-            Icons.chevron_right_rounded,
+          Icon(
+            Icons.edit_outlined,
             size: 18,
-            color: Color(0xFF94A3B8),
+            color: palette.onSurface.withValues(alpha: 0.78),
           ),
         ],
-      ],
-    );
-    if (onTap == null) {
-      return content;
-    }
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: content,
-        ),
       ),
     );
   }
@@ -1396,8 +1075,9 @@ class _RepeatEndPickerSheetState extends State<_RepeatEndPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     final label = DateFormat('yyyy年M月d日', 'zh_CN').format(_selectedDate);
-    return _SheetContainer(
+    return AppSheetContainer(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1409,7 +1089,7 @@ class _RepeatEndPickerSheetState extends State<_RepeatEndPickerSheet> {
                   '循环截止',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF111827),
+                    color: palette.onSurface,
                   ),
                 ),
               ),
@@ -1420,7 +1100,7 @@ class _RepeatEndPickerSheetState extends State<_RepeatEndPickerSheet> {
             ],
           ),
           const SizedBox(height: 16),
-          _RepeatChip(
+          AppChoiceChip(
             label: '不设置',
             selected: !_enabled,
             onTap: () {
@@ -1430,7 +1110,7 @@ class _RepeatEndPickerSheetState extends State<_RepeatEndPickerSheet> {
             },
           ),
           const SizedBox(height: 12),
-          _StaticValueRow(
+          AppDisclosureRow(
             label: '截止日期',
             value: label,
             onTap: () async {
@@ -1458,10 +1138,10 @@ class _RepeatEndPickerSheetState extends State<_RepeatEndPickerSheet> {
             '设置后，循环将在该日期当天结束。',
             style: Theme.of(
               context,
-            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF94A3B8)),
+            ).textTheme.bodyMedium?.copyWith(color: palette.textMuted),
           ),
           const SizedBox(height: 20),
-          _BottomSaveBar(
+          AppPrimaryBottomButton(
             label: '确定',
             onPressed: () {
               Navigator.of(context).pop(
@@ -1490,7 +1170,8 @@ class _ReminderAdvanceSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _SheetContainer(
+    final palette = AppThemeScope.of(context).palette;
+    return AppSheetContainer(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1499,7 +1180,7 @@ class _ReminderAdvanceSheet extends StatelessWidget {
             '提前提醒',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF111827),
+              color: palette.onSurface,
             ),
           ),
           const SizedBox(height: 16),
@@ -1508,7 +1189,7 @@ class _ReminderAdvanceSheet extends StatelessWidget {
             runSpacing: 10,
             children: [
               for (final option in _options)
-                _RepeatChip(
+                AppChoiceChip(
                   label: _label(option),
                   selected: currentValue == option,
                   onTap: () => Navigator.of(context).pop(option),
@@ -1542,6 +1223,7 @@ class _CreateInfoSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     final formatter = DateFormat('yyyy-MM-dd HH:mm', 'zh_CN');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1550,74 +1232,14 @@ class _CreateInfoSection extends StatelessWidget {
           '创建信息',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
-            color: const Color(0xFF111827),
+            color: palette.onSurface,
           ),
         ),
         const SizedBox(height: 14),
-        _InfoRow(label: '创建时间', value: formatter.format(createdAt.toLocal())),
+        AppInfoRow(label: '创建时间', value: formatter.format(createdAt.toLocal())),
         const SizedBox(height: 10),
-        _InfoRow(label: '最后更新', value: formatter.format(updatedAt.toLocal())),
+        AppInfoRow(label: '最后更新', value: formatter.format(updatedAt.toLocal())),
       ],
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 72,
-          child: Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF6B7280)),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFF4B5563),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _BottomSaveBar extends StatelessWidget {
-  const _BottomSaveBar({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return FilledButton(
-      onPressed: onPressed,
-      style: FilledButton.styleFrom(
-        backgroundColor: const Color(0xFF19B365),
-        foregroundColor: Colors.white,
-        minimumSize: const Size(double.infinity, 52),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: Colors.white,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
     );
   }
 }
@@ -1630,16 +1252,17 @@ class _KeyboardAccessoryBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     return Material(
-      color: const Color(0xFFF6F7F8),
+      color: palette.surfaceContainerLow,
       elevation: 4,
       child: SafeArea(
         top: false,
         child: Container(
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: Color(0xFFD8DEE3))),
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: palette.outline)),
           ),
           child: Row(
             children: [
@@ -1673,7 +1296,7 @@ class _TagSelectionSheetState extends State<_TagSelectionSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return _SheetContainer(
+    return AppSheetContainer(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1690,7 +1313,7 @@ class _TagSelectionSheetState extends State<_TagSelectionSheet> {
             runSpacing: 10,
             children: widget.tags.map((tag) {
               final selected = _selected.contains(tag.id);
-              return _RepeatChip(
+              return AppChoiceChip(
                 label: tag.name,
                 selected: selected,
                 onTap: () {
@@ -1706,33 +1329,11 @@ class _TagSelectionSheetState extends State<_TagSelectionSheet> {
             }).toList(),
           ),
           const SizedBox(height: 20),
-          _BottomSaveBar(
+          AppPrimaryBottomButton(
             label: '完成',
             onPressed: () => Navigator.of(context).pop(_selected),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SheetContainer extends StatelessWidget {
-  const _SheetContainer({required this.child, this.padding});
-
-  final Widget child;
-  final EdgeInsets? padding;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        child: Padding(
-          padding: padding ?? const EdgeInsets.fromLTRB(20, 18, 20, 20),
-          child: child,
-        ),
       ),
     );
   }
@@ -1788,13 +1389,14 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     final monthText = DateFormat('yyyy年M月', 'zh_CN').format(_visibleMonth);
     final selectedText = DateFormat(
       'yyyy年M月d日 EEEE',
       'zh_CN',
     ).format(_selectedDate);
     final days = _buildCalendarDays(_visibleMonth);
-    return _SheetContainer(
+    return AppSheetContainer(
       padding: const EdgeInsets.fromLTRB(0, 0, 0, 18),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1805,10 +1407,7 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
               children: [
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(
-                    Icons.close_rounded,
-                    color: Color(0xFF111827),
-                  ),
+                  icon: Icon(Icons.close_rounded, color: palette.onSurface),
                 ),
                 Expanded(
                   child: Text(
@@ -1816,18 +1415,16 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF111827),
+                      color: palette.onSurface,
                     ),
                   ),
                 ),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(_selectedDate),
+                  style: TextButton.styleFrom(foregroundColor: palette.primary),
                   child: const Text(
                     '确定',
-                    style: TextStyle(
-                      color: Color(0xFF19B365),
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
@@ -1858,13 +1455,13 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
                           style: Theme.of(context).textTheme.headlineSmall
                               ?.copyWith(
                                 fontWeight: FontWeight.w800,
-                                color: const Color(0xFF1F2937),
+                                color: palette.onSurface,
                               ),
                         ),
                         const SizedBox(width: 6),
-                        const Icon(
+                        Icon(
                           Icons.keyboard_arrow_down_rounded,
-                          color: Color(0xFF64748B),
+                          color: palette.textMuted,
                         ),
                       ],
                     ),
@@ -1937,7 +1534,7 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: palette.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
@@ -1959,10 +1556,10 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
                     borderRadius: BorderRadius.circular(10),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.calendar_today_outlined,
                           size: 18,
-                          color: Color(0xFF475569),
+                          color: palette.onSurface.withValues(alpha: 0.72),
                         ),
                         const SizedBox(width: 8),
                         Text(
@@ -1970,7 +1567,9 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 fontWeight: FontWeight.w700,
-                                color: const Color(0xFF475569),
+                                color: palette.onSurface.withValues(
+                                  alpha: 0.72,
+                                ),
                               ),
                         ),
                       ],
@@ -2012,13 +1611,15 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 fontWeight: FontWeight.w700,
-                                color: const Color(0xFF475569),
+                                color: palette.onSurface.withValues(
+                                  alpha: 0.72,
+                                ),
                               ),
                         ),
                         const SizedBox(width: 6),
-                        const Icon(
+                        Icon(
                           Icons.chevron_right_rounded,
-                          color: Color(0xFF64748B),
+                          color: palette.textMuted,
                         ),
                       ],
                     ),
@@ -2031,7 +1632,7 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
           Text(
             '已选择：$selectedText',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: const Color(0xFF94A3B8),
+              color: palette.textMuted,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -2102,9 +1703,10 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     final selectedText =
         '${_hour.toString().padLeft(2, '0')}:${_minute.toString().padLeft(2, '0')}';
-    return _SheetContainer(
+    return AppSheetContainer(
       padding: const EdgeInsets.fromLTRB(0, 0, 0, 18),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2115,9 +1717,9 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
               children: [
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.arrow_back_rounded,
-                    color: Color(0xFF111827),
+                    color: palette.onSurface,
                   ),
                 ),
                 Expanded(
@@ -2126,18 +1728,16 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF111827),
+                      color: palette.onSurface,
                     ),
                   ),
                 ),
                 TextButton(
                   onPressed: _save,
+                  style: TextButton.styleFrom(foregroundColor: palette.primary),
                   child: const Text(
                     '确定',
-                    style: TextStyle(
-                      color: Color(0xFF19B365),
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
@@ -2156,12 +1756,12 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.white,
-                            Colors.white.withValues(alpha: 0.92),
-                            Colors.white.withValues(alpha: 0.0),
-                            Colors.white.withValues(alpha: 0.0),
-                            Colors.white.withValues(alpha: 0.92),
-                            Colors.white,
+                            palette.surface,
+                            palette.surface.withValues(alpha: 0.92),
+                            palette.surface.withValues(alpha: 0.0),
+                            palette.surface.withValues(alpha: 0.0),
+                            palette.surface.withValues(alpha: 0.92),
+                            palette.surface,
                           ],
                           stops: const [0.0, 0.14, 0.28, 0.72, 0.86, 1.0],
                         ),
@@ -2175,9 +1775,9 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
                   child: Container(
                     height: 68,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFCFDFC),
+                      color: palette.surface,
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                      border: Border.all(color: palette.outline),
                       boxShadow: const [
                         BoxShadow(
                           color: Color(0x050F172A),
@@ -2194,9 +1794,9 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
                   child: IgnorePointer(
                     child: Container(
                       height: 1,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         border: Border(
-                          top: BorderSide(color: Color(0xFFEAECEF)),
+                          top: BorderSide(color: palette.outlineSoft),
                         ),
                       ),
                     ),
@@ -2209,9 +1809,9 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
                   child: IgnorePointer(
                     child: Container(
                       height: 1,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         border: Border(
-                          top: BorderSide(color: Color(0xFFEAECEF)),
+                          top: BorderSide(color: palette.outlineSoft),
                         ),
                       ),
                     ),
@@ -2246,7 +1846,7 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.headlineMedium
                             ?.copyWith(
-                              color: const Color(0xFF19B365),
+                              color: palette.primary,
                               fontWeight: FontWeight.w800,
                             ),
                       ),
@@ -2323,7 +1923,7 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
           Text(
             '已选择：$selectedText',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: const Color(0xFF94A3B8),
+              color: palette.textMuted,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -2362,12 +1962,13 @@ class _WeekdayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     return Expanded(
       child: Center(
         child: Text(
           label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: const Color(0xFF94A3B8),
+            color: palette.textMuted,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -2384,6 +1985,7 @@ class _MonthArrowButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -2391,10 +1993,10 @@ class _MonthArrowButton extends StatelessWidget {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
+          color: palette.surfaceContainerLow,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(icon, color: const Color(0xFF64748B), size: 20),
+        child: Icon(icon, color: palette.textMuted, size: 20),
       ),
     );
   }
@@ -2413,11 +2015,12 @@ class _DateCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     final textColor = isSelected
-        ? Colors.white
+        ? palette.onPrimary
         : data.inCurrentMonth
-        ? const Color(0xFF111827)
-        : const Color(0xFFCBD5E1);
+        ? palette.onSurface
+        : palette.outline;
     return Expanded(
       child: InkWell(
         onTap: onTap,
@@ -2429,9 +2032,7 @@ class _DateCell extends StatelessWidget {
               width: 40,
               height: 48,
               decoration: BoxDecoration(
-                color: isSelected
-                    ? const Color(0xFF19B365)
-                    : Colors.transparent,
+                color: isSelected ? palette.primary : Colors.transparent,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Column(
@@ -2453,9 +2054,9 @@ class _DateCell extends StatelessWidget {
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? Colors.white
+                            ? palette.onPrimary
                             : data.hasMarker && data.inCurrentMonth
-                            ? const Color(0xFF19B365)
+                            ? palette.primary
                             : Colors.transparent,
                         shape: BoxShape.circle,
                       ),
@@ -2509,7 +2110,8 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return _SheetContainer(
+    final palette = AppThemeScope.of(context).palette;
+    return AppSheetContainer(
       padding: const EdgeInsets.fromLTRB(0, 0, 0, 18),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2520,10 +2122,7 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
               children: [
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(
-                    Icons.close_rounded,
-                    color: Color(0xFF111827),
-                  ),
+                  icon: Icon(Icons.close_rounded, color: palette.onSurface),
                 ),
                 Expanded(
                   child: Text(
@@ -2531,19 +2130,17 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF111827),
+                      color: palette.onSurface,
                     ),
                   ),
                 ),
                 TextButton(
                   onPressed: () =>
                       Navigator.of(context).pop(DateTime(_year, _month)),
+                  style: TextButton.styleFrom(foregroundColor: palette.primary),
                   child: const Text(
                     '确定',
-                    style: TextStyle(
-                      color: Color(0xFF19B365),
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
@@ -2559,10 +2156,10 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
                   right: 56,
                   child: Container(
                     height: 60,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       border: Border(
-                        top: BorderSide(color: Color(0xFFE5E7EB)),
-                        bottom: BorderSide(color: Color(0xFFE5E7EB)),
+                        top: BorderSide(color: palette.outline),
+                        bottom: BorderSide(color: palette.outline),
                       ),
                     ),
                   ),
@@ -2622,11 +2219,14 @@ class _PickerValue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     return Center(
       child: Text(
         label,
         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-          color: selected ? const Color(0xFF19B365) : const Color(0xFF98A2B3),
+          color: selected
+              ? palette.primary
+              : palette.textMuted.withValues(alpha: 0.75),
           fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
         ),
       ),
@@ -2642,20 +2242,21 @@ class _QuickTimeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppThemeScope.of(context).palette;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
         height: 52,
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
+          color: palette.surfaceContainerLow,
           borderRadius: BorderRadius.circular(14),
         ),
         alignment: Alignment.center,
         child: Text(
           label,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: const Color(0xFF64748B),
+            color: palette.textMuted,
             fontWeight: FontWeight.w700,
           ),
         ),

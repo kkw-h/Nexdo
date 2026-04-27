@@ -30,6 +30,10 @@ class NexdoApp extends StatelessWidget {
                 onSecondaryContainer: palette.secondary,
                 surface: palette.surface,
                 onSurface: palette.onSurface,
+                error: palette.error,
+                onError: palette.onPrimary,
+                errorContainer: palette.errorContainer,
+                onErrorContainer: palette.onErrorContainer,
                 surfaceContainerLow: palette.surfaceContainerLow,
                 surfaceContainerHighest: palette.chipBackground,
                 surfaceBright: palette.surfaceBright,
@@ -382,12 +386,12 @@ class NexdoApp extends StatelessWidget {
                 ),
                 errorBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(18),
-                  borderSide: const BorderSide(color: Color(0xFFB91C1C)),
+                  borderSide: BorderSide(color: palette.onErrorContainer),
                 ),
                 focusedErrorBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(18),
-                  borderSide: const BorderSide(
-                    color: Color(0xFFB91C1C),
+                  borderSide: BorderSide(
+                    color: palette.onErrorContainer,
                     width: 1.4,
                   ),
                 ),

@@ -13,6 +13,7 @@ import 'package:nexdo/src/features/quick_notes/presentation/quick_notes_page.dar
 
 import '../../../core/device/device_identity.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/app_ui_primitives.dart';
 import '../../auth/data/auth_repository.dart'
     show AuthRepository, AuthException;
 import '../../auth/domain/auth_device.dart';
@@ -28,6 +29,9 @@ import '../domain/entities/reminder_models.dart';
 import 'reminder_controller.dart';
 import 'reminder_form_page.dart';
 import 'reminder_notification_settings_page.dart';
+
+const _kCardShadowColor = Color(0x0A0F172A);
+const _kCardShadowColorSoft = Color(0x080F172A);
 
 class ReminderAppShell extends StatefulWidget {
   const ReminderAppShell({
@@ -258,7 +262,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
             _openForm(controller);
           },
           backgroundColor: AppThemeScope.of(context).palette.primary,
-          foregroundColor: Colors.white,
+          foregroundColor: AppThemeScope.of(context).palette.onPrimary,
           elevation: 10,
           shape: const CircleBorder(),
           child: Icon(fabIcon, size: 30),
@@ -502,7 +506,10 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
             ),
             FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFB91C1C),
+                backgroundColor: AppThemeScope.of(context).palette.error,
+                foregroundColor: AppThemeScope.of(
+                  context,
+                ).palette.onErrorContainer,
               ),
               onPressed: () => Navigator.of(context).pop(true),
               child: const Text('删除'),
@@ -967,19 +974,9 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
           ),
         ),
         const SizedBox(height: 20),
-        Container(
-          decoration: BoxDecoration(
-            color: palette.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: palette.outline),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A111827),
-                blurRadius: 18,
-                offset: Offset(0, 8),
-              ),
-            ],
-          ),
+        AppSurfaceCard(
+          padding: EdgeInsets.zero,
+          borderRadius: 18,
           child: Column(
             children: [
               InkWell(
@@ -1102,16 +1099,13 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                   padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
                   child: Row(
                     children: [
-                      const Icon(
-                        Icons.logout_rounded,
-                        color: Color(0xFFEF4444),
-                      ),
+                      Icon(Icons.logout_rounded, color: palette.error),
                       const SizedBox(width: 10),
                       Text(
                         '退出登录',
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(
-                              color: const Color(0xFFEF4444),
+                              color: palette.error,
                               fontWeight: FontWeight.w900,
                             ),
                       ),
@@ -1123,20 +1117,9 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
           ),
         ),
         const SizedBox(height: 18),
-        Container(
-          decoration: BoxDecoration(
-            color: palette.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: palette.outline),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A111827),
-                blurRadius: 18,
-                offset: Offset(0, 8),
-              ),
-            ],
-          ),
+        AppSurfaceCard(
           padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+          borderRadius: 18,
           child: Column(
             children: [
               InkWell(
@@ -1251,20 +1234,9 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
           ],
         ),
         const SizedBox(height: 18),
-        Container(
-          decoration: BoxDecoration(
-            color: palette.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: palette.outline),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A111827),
-                blurRadius: 18,
-                offset: Offset(0, 8),
-              ),
-            ],
-          ),
+        AppSurfaceCard(
           padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+          borderRadius: 18,
           child: Column(
             children: [
               InkWell(
@@ -1546,10 +1518,10 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                               color: palette.primary,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.check_rounded,
                               size: 15,
-                              color: Colors.white,
+                              color: palette.onPrimary,
                             ),
                           ),
                       ],
@@ -1699,19 +1671,9 @@ class _ProfileSettingsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = AppThemeScope.of(context).palette;
-    return Container(
-      decoration: BoxDecoration(
-        color: palette.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: palette.outline),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A111827),
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
+    return AppSurfaceCard(
+      padding: EdgeInsets.zero,
+      borderRadius: 18,
       child: Column(
         children: [
           for (var i = 0; i < items.length; i++) ...[
@@ -1943,7 +1905,7 @@ class _TodaySummaryCard extends StatelessWidget {
         ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0F0A7663),
+            color: _kCardShadowColor,
             blurRadius: 22,
             offset: Offset(0, 10),
           ),
@@ -2159,7 +2121,7 @@ class _TodayActionButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x080A7663),
+                color: _kCardShadowColorSoft,
                 blurRadius: 14,
                 offset: Offset(0, 6),
               ),
@@ -2269,7 +2231,7 @@ class _MetricMini extends StatelessWidget {
         border: Border.all(color: palette.outline),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x08293B52),
+            color: _kCardShadowColorSoft,
             blurRadius: 18,
             offset: Offset(0, 8),
           ),
@@ -2743,7 +2705,7 @@ class _ReminderCard extends StatelessWidget {
     final palette = AppThemeScope.of(context).palette;
     final list = controller.findList(reminder.listId);
     final tags = controller.findTags(reminder.tagIds);
-    final status = _InboxReminderStatus.fromReminder(reminder);
+    final status = _InboxReminderStatus.fromReminder(reminder, palette);
     final dateLabel = _inboxDateLabel(reminder.dueAt);
     final weekdayLabel = _inboxWeekdayLabel(reminder.dueAt);
     final timeLabel = reminder.hasSpecificTime
@@ -2999,13 +2961,16 @@ class _InboxReminderStatus {
   final Color badgeBackground;
   final bool filled;
 
-  factory _InboxReminderStatus.fromReminder(ReminderItem reminder) {
-    const green = Color(0xFF10B981);
-    const orange = Color(0xFFF97316);
-    const red = Color(0xFFEF4444);
-    const gray = Color(0xFF9CA3AF);
-    const muted = Color(0xFF6B7280);
-    const border = Color(0xFFEAF3F1);
+  factory _InboxReminderStatus.fromReminder(
+    ReminderItem reminder,
+    AppThemePalette palette,
+  ) {
+    final green = palette.success;
+    final orange = palette.warning;
+    final red = palette.error;
+    final gray = palette.textMuted;
+    final muted = palette.textMuted;
+    final border = palette.outline;
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -3017,14 +2982,14 @@ class _InboxReminderStatus {
     final diff = dueDate.difference(today).inDays;
 
     if (reminder.isCompleted) {
-      return const _InboxReminderStatus(
+      return _InboxReminderStatus(
         label: '已完成',
         timeColor: gray,
         labelColor: gray,
         mutedColor: gray,
-        cardColor: Colors.white,
+        cardColor: palette.surface,
         borderColor: border,
-        badgeBackground: Color(0xFFE5E7EB),
+        badgeBackground: palette.surfaceContainerLow,
       );
     }
 
@@ -3034,45 +2999,45 @@ class _InboxReminderStatus {
         timeColor: red,
         labelColor: red,
         mutedColor: muted,
-        cardColor: const Color(0xFFFFFBFB),
-        borderColor: const Color(0xFFFEE2E2),
-        badgeBackground: const Color(0xFFFEE2E2),
+        cardColor: palette.errorContainer.withValues(alpha: 0.3),
+        borderColor: palette.errorContainer,
+        badgeBackground: palette.errorContainer,
       );
     }
 
     if (diff == 0 && reminder.hasSpecificTime && reminder.dueAt.isBefore(now)) {
-      return const _InboxReminderStatus(
+      return _InboxReminderStatus(
         label: '进行中',
         timeColor: green,
-        labelColor: Color(0xFF047857),
+        labelColor: palette.success,
         mutedColor: muted,
-        cardColor: Colors.white,
+        cardColor: palette.surface,
         borderColor: border,
-        badgeBackground: Color(0xFFD1FAE5),
+        badgeBackground: palette.successContainer,
         filled: true,
       );
     }
 
     if (diff == 0) {
-      return const _InboxReminderStatus(
+      return _InboxReminderStatus(
         label: '待办',
         timeColor: green,
         labelColor: green,
         mutedColor: muted,
-        cardColor: Colors.white,
+        cardColor: palette.surface,
         borderColor: border,
-        badgeBackground: Color(0xFFD1FAE5),
+        badgeBackground: palette.successContainer,
       );
     }
 
     return _InboxReminderStatus(
       label: '剩余 $diff 天',
-      timeColor: diff <= 1 ? green : const Color(0xFF111827),
+      timeColor: diff <= 1 ? green : palette.onSurface,
       labelColor: diff <= 1 ? green : orange,
       mutedColor: muted,
-      cardColor: Colors.white,
+      cardColor: palette.surface,
       borderColor: border,
-      badgeBackground: const Color(0xFFFEF3C7),
+      badgeBackground: palette.warningContainer,
     );
   }
 }
@@ -3216,67 +3181,7 @@ class _LoadingBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FractionallySizedBox(
-      widthFactor: widthFactor,
-      alignment: Alignment.centerLeft,
-      child: _BreathingPlaceholder(
-        borderRadius: BorderRadius.circular(999),
-        child: SizedBox(height: height),
-      ),
-    );
-  }
-}
-
-class _BreathingPlaceholder extends StatefulWidget {
-  const _BreathingPlaceholder({
-    required this.child,
-    required this.borderRadius,
-  });
-
-  final Widget child;
-  final BorderRadius borderRadius;
-
-  @override
-  State<_BreathingPlaceholder> createState() => _BreathingPlaceholderState();
-}
-
-class _BreathingPlaceholderState extends State<_BreathingPlaceholder>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1400),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppThemeScope.of(context).palette;
-    return AnimatedBuilder(
-      animation: _controller,
-      child: widget.child,
-      builder: (context, child) {
-        final progress = _controller.value;
-        final begin = Alignment(-1.8 + (2.6 * progress), 0);
-        final end = Alignment(-0.8 + (2.6 * progress), 0);
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: widget.borderRadius,
-            gradient: LinearGradient(
-              begin: begin,
-              end: end,
-              colors: [palette.outline, palette.background, palette.outline],
-              stops: const [0.1, 0.5, 0.9],
-            ),
-          ),
-          child: child,
-        );
-      },
-    );
+    return AppSkeletonBar(widthFactor: widthFactor, height: height);
   }
 }
 
@@ -3312,19 +3217,22 @@ class _ReminderSwipeAction extends StatelessWidget {
             padding: EdgeInsets.zero,
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xFFB91C1C),
+                color: palette.error,
                 borderRadius: BorderRadius.circular(8),
               ),
               alignment: Alignment.center,
-              child: const Column(
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.delete_outline_rounded, color: Colors.white),
-                  SizedBox(height: 4),
+                  Icon(
+                    Icons.delete_outline_rounded,
+                    color: palette.onErrorContainer,
+                  ),
+                  const SizedBox(height: 4),
                   Text(
                     '删除',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: palette.onErrorContainer,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -3371,7 +3279,7 @@ class _TimelineTile extends StatelessWidget {
 
     return Card(
       color: isOverdue
-          ? const Color(0xFFFFF5F5)
+          ? palette.errorContainer.withValues(alpha: 0.3)
           : (isCompleted ? palette.chipBackground : null),
       child: InkWell(
         borderRadius: BorderRadius.circular(24),
@@ -3398,7 +3306,7 @@ class _TimelineTile extends StatelessWidget {
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w800,
                           color: isOverdue
-                              ? const Color(0xFFB91C1C)
+                              ? palette.error
                               : (baseTextColor ??
                                     Theme.of(
                                       context,
@@ -3411,7 +3319,7 @@ class _TimelineTile extends StatelessWidget {
                 Container(
                   width: 1,
                   margin: const EdgeInsets.symmetric(vertical: 2),
-                  color: isOverdue ? const Color(0xFFFECACA) : palette.outline,
+                  color: isOverdue ? palette.errorContainer : palette.outline,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -3437,10 +3345,10 @@ class _TimelineTile extends StatelessWidget {
                                 ),
                           ),
                           if (isOverdue)
-                            const _Pill(
+                            _Pill(
                               label: '超时未完成',
-                              color: Color(0xFFFEE2E2),
-                              foreground: Color(0xFFB91C1C),
+                              color: palette.errorContainer,
+                              foreground: palette.error,
                             ),
                           if (isCompleted)
                             _Pill(
@@ -3495,13 +3403,9 @@ class _TodayReminderRow extends StatelessWidget {
     final list = controller.findList(reminder.listId);
     final tags = controller.findTags(reminder.tagIds);
     final isCompleted = reminder.isCompleted;
-    final status = _TodayReminderStatus.fromReminder(reminder);
-    final titleColor = isCompleted
-        ? const Color(0xFF9CA3AF)
-        : palette.onSurface;
-    final subtitleColor = isCompleted
-        ? const Color(0xFF9CA3AF)
-        : palette.textMuted;
+    final status = _TodayReminderStatus.fromReminder(reminder, palette);
+    final titleColor = isCompleted ? palette.textMuted : palette.onSurface;
+    final subtitleColor = isCompleted ? palette.textMuted : palette.textMuted;
     final primaryTag = tags.isNotEmpty ? tags.first.name : null;
 
     return Material(
@@ -3765,13 +3669,16 @@ class _TodayReminderStatus {
   final IconData? icon;
   final bool filled;
 
-  factory _TodayReminderStatus.fromReminder(ReminderItem reminder) {
-    const green = Color(0xFF10B981);
-    const orange = Color(0xFFF59E0B);
-    const red = Color(0xFFEF4444);
-    const gray = Color(0xFF9CA3AF);
-    const border = Color(0xFFE9F4F1);
-    const muted = Color(0xFF7B8A86);
+  factory _TodayReminderStatus.fromReminder(
+    ReminderItem reminder,
+    AppThemePalette palette,
+  ) {
+    final green = palette.success;
+    final orange = palette.warning;
+    final red = palette.error;
+    final gray = palette.textMuted;
+    final border = palette.outline;
+    final muted = palette.textMuted;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final dueDay = DateTime(
@@ -3782,14 +3689,14 @@ class _TodayReminderStatus {
     final diffDays = dueDay.difference(today).inDays;
 
     if (reminder.isCompleted) {
-      return const _TodayReminderStatus(
+      return _TodayReminderStatus(
         label: '已完成',
         timeColor: gray,
         dotColor: gray,
-        cardColor: Color(0xFFF9FAFA),
-        borderColor: Color(0xFFE5E7EB),
+        cardColor: palette.surfaceContainerLow,
+        borderColor: palette.outline,
         labelColor: gray,
-        labelBackground: Color(0xFFE5E7EB),
+        labelBackground: palette.surfaceContainerLow,
         icon: Icons.check_circle_outline_rounded,
       );
     }
@@ -3800,37 +3707,37 @@ class _TodayReminderStatus {
         label: '逾期 $days 天',
         timeColor: red,
         dotColor: red,
-        cardColor: const Color(0xFFFFFBFB),
-        borderColor: const Color(0xFFFEE2E2),
+        cardColor: palette.errorContainer.withValues(alpha: 0.3),
+        borderColor: palette.errorContainer,
         labelColor: red,
-        labelBackground: const Color(0xFFFEE2E2),
+        labelBackground: palette.errorContainer,
       );
     }
 
     if (diffDays == 0 &&
         reminder.hasSpecificTime &&
         reminder.dueAt.isBefore(now)) {
-      return const _TodayReminderStatus(
+      return _TodayReminderStatus(
         label: '进行中',
         timeColor: green,
         dotColor: green,
-        cardColor: Colors.white,
+        cardColor: palette.surface,
         borderColor: border,
-        labelColor: Color(0xFF047857),
-        labelBackground: Color(0xFFD1FAE5),
+        labelColor: palette.success,
+        labelBackground: palette.successContainer,
         filled: true,
       );
     }
 
     if (diffDays == 0) {
-      return const _TodayReminderStatus(
+      return _TodayReminderStatus(
         label: '今天',
         timeColor: green,
         dotColor: green,
-        cardColor: Colors.white,
+        cardColor: palette.surface,
         borderColor: border,
         labelColor: muted,
-        labelBackground: Color(0xFFE9F4F1),
+        labelBackground: palette.surfaceContainerLow,
         icon: Icons.calendar_today_rounded,
       );
     }
@@ -3839,10 +3746,10 @@ class _TodayReminderStatus {
       label: '剩余 $diffDays 天',
       timeColor: orange,
       dotColor: orange,
-      cardColor: const Color(0xFFFFFCF7),
-      borderColor: const Color(0xFFFDECC8),
+      cardColor: palette.warningContainer.withValues(alpha: 0.28),
+      borderColor: palette.warningContainer,
       labelColor: orange,
-      labelBackground: const Color(0xFFFEF3C7),
+      labelBackground: palette.warningContainer,
     );
   }
 }
@@ -3879,7 +3786,7 @@ class _CalendarDayCell extends StatelessWidget {
         ? palette.primary.withValues(alpha: 0.55)
         : Colors.transparent;
     final textColor = isSelected
-        ? Colors.white
+        ? palette.onPrimary
         : count > 0
         ? palette.onSurface
         : palette.textMuted;
@@ -3949,48 +3856,10 @@ class _EmptyPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = AppThemeScope.of(context).palette;
-    return Card(
-      color: palette.surface,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-        child: Column(
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [palette.outlineSoft, palette.outline],
-                ),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Icon(
-                Icons.notifications_none_rounded,
-                size: 30,
-                color: palette.primary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: palette.textMuted),
-            ),
-          ],
-        ),
-      ),
+    return AppStateEmptyCard(
+      icon: Icons.notifications_none_rounded,
+      title: title,
+      subtitle: subtitle,
     );
   }
 }
@@ -4010,41 +3879,11 @@ class _ErrorPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.cloud_off_rounded,
-              size: 44,
-              color: Color(0xFF64748B),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 14),
-            FilledButton.tonal(
-              onPressed: () => unawaited(onPressed()),
-              child: Text(actionLabel),
-            ),
-          ],
-        ),
-      ),
+    return AppStateErrorCard(
+      title: title,
+      message: message,
+      actionLabel: actionLabel,
+      onPressed: onPressed,
     );
   }
 }
@@ -4075,7 +3914,7 @@ class _InboxQueryEmptyState extends StatelessWidget {
           border: Border.all(color: palette.outline),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x0D293B52),
+              color: _kCardShadowColor,
               blurRadius: 24,
               offset: Offset(0, 10),
             ),
@@ -4209,7 +4048,7 @@ class _OverviewHeroCard extends StatelessWidget {
         border: Border.all(color: palette.outline),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0D293B52),
+            color: _kCardShadowColor,
             blurRadius: 24,
             offset: Offset(0, 10),
           ),
@@ -4425,8 +4264,12 @@ class _WorkspaceManagerPageState extends State<_WorkspaceManagerPage> {
                       onAdd: () => _promptNameDialog(
                         context: context,
                         title: '新建任务清单',
-                        onSubmit: (name) =>
-                            widget.controller.createList(name, 0xFF64748B),
+                        onSubmit: (name) => widget.controller.createList(
+                          name,
+                          AppThemeScope.of(
+                            context,
+                          ).palette.textMuted.toARGB32(),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -4496,8 +4339,10 @@ class _WorkspaceManagerPageState extends State<_WorkspaceManagerPage> {
                       onAdd: () => _promptNameDialog(
                         context: context,
                         title: '新建标签',
-                        onSubmit: (name) =>
-                            widget.controller.createTag(name, 0xFF3B82F6),
+                        onSubmit: (name) => widget.controller.createTag(
+                          name,
+                          AppThemeScope.of(context).palette.primary.toARGB32(),
+                        ),
                       ),
                     ),
                   ],
@@ -4661,7 +4506,10 @@ class _WorkspaceManagerPageState extends State<_WorkspaceManagerPage> {
             ),
             FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFB91C1C),
+                backgroundColor: AppThemeScope.of(context).palette.error,
+                foregroundColor: AppThemeScope.of(
+                  context,
+                ).palette.onErrorContainer,
               ),
               onPressed: () => Navigator.of(context).pop(true),
               child: const Text('删除'),
@@ -5004,7 +4852,7 @@ class _ManagerSection extends StatelessWidget {
                       IconButton(
                         tooltip: '删除',
                         onPressed: item.onDelete,
-                        color: const Color(0xFFB91C1C),
+                        color: AppThemeScope.of(context).palette.error,
                         icon: const Icon(Icons.delete_outline),
                       ),
                     ],
@@ -5087,7 +4935,7 @@ class _ReorderableList extends StatelessWidget {
               IconButton(
                 tooltip: '删除',
                 onPressed: item.onDelete,
-                color: const Color(0xFFB91C1C),
+                color: palette.error,
                 icon: const Icon(Icons.delete_outline),
               ),
               const SizedBox(width: 4),

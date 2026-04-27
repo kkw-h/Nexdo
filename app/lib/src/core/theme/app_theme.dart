@@ -22,6 +22,18 @@ class AppThemePalette {
     required this.heroMutedText,
     required this.heroAvatarBackground,
     required this.heroAvatarForeground,
+    required this.success,
+    required this.successContainer,
+    required this.onSuccessContainer,
+    required this.warning,
+    required this.warningContainer,
+    required this.onWarningContainer,
+    required this.error,
+    required this.errorContainer,
+    required this.onErrorContainer,
+    required this.info,
+    required this.infoContainer,
+    required this.onInfoContainer,
   });
 
   final Color primary;
@@ -44,6 +56,18 @@ class AppThemePalette {
   final Color heroMutedText;
   final Color heroAvatarBackground;
   final Color heroAvatarForeground;
+  final Color success;
+  final Color successContainer;
+  final Color onSuccessContainer;
+  final Color warning;
+  final Color warningContainer;
+  final Color onWarningContainer;
+  final Color error;
+  final Color errorContainer;
+  final Color onErrorContainer;
+  final Color info;
+  final Color infoContainer;
+  final Color onInfoContainer;
 }
 
 class AppThemeScope extends InheritedWidget {
@@ -70,6 +94,18 @@ class AppThemeScope extends InheritedWidget {
     heroMutedText: Color(0xFFE7FFF4),
     heroAvatarBackground: Color(0xFFE7FFF4),
     heroAvatarForeground: Color(0xFF047857),
+    success: Color(0xFF10B981),
+    successContainer: Color(0xFFD1FAE5),
+    onSuccessContainer: Color(0xFF047857),
+    warning: Color(0xFFF59E0B),
+    warningContainer: Color(0xFFFEF3C7),
+    onWarningContainer: Color(0xFFB45309),
+    error: Color(0xFFEF4444),
+    errorContainer: Color(0xFFFEE2E2),
+    onErrorContainer: Color(0xFFB91C1C),
+    info: Color(0xFF3B82F6),
+    infoContainer: Color(0xFFDBEAFE),
+    onInfoContainer: Color(0xFF1D4ED8),
   );
 
   final AppThemePalette palette;

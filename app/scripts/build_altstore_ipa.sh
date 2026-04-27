@@ -57,8 +57,13 @@ if [[ -z "$VERSION_LINE" ]]; then
 fi
 
 APP_VERSION="${ALTSTORE_APP_VERSION:-${VERSION_LINE%%+*}}"
+BUILD_VERSION="${ALTSTORE_BUILD_VERSION:-${VERSION_LINE#*+}}"
 if [[ -z "$APP_VERSION" ]]; then
   echo "[AltStore] version 字段格式异常: $VERSION_LINE" >&2
+  exit 1
+fi
+if [[ -z "$BUILD_VERSION" || "$BUILD_VERSION" == "$VERSION_LINE" ]]; then
+  echo "[AltStore] 无法从 version 字段解析 build number: $VERSION_LINE" >&2
   exit 1
 fi
 
@@ -80,6 +85,7 @@ DOWNLOAD_URL="$DOWNLOAD_URL_BASE/$RELEASE_TAG/$IPA_NAME"
 VERSION_DATE=$(date -u +%Y-%m-%d)
 VERSION_ISO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 RELEASE_NOTES="${ALTSTORE_RELEASE_NOTES:-Nexdo ${APP_VERSION} 发布}"
+MIN_OS_VERSION="${ALTSTORE_MIN_OS_VERSION:-13.0}"
 
 echo "=== 构建 AltStore IPA (${APP_VERSION}) ==="
 flutter pub get
@@ -112,6 +118,8 @@ data = json.loads(source_path.read_text(encoding="utf-8"))
 data["name"] = data.get("name") or "Nexdo"
 data["identifier"] = "top.kkworld.nexdo"
 data["sourceURL"] = "$SOURCE_URL"
+data.setdefault("subtitle", "Nexdo 官方 AltStore 分发源")
+data.setdefault("iconURL", "$ICON_URL")
 
 apps = data.setdefault("apps", [])
 if not apps:
@@ -121,12 +129,17 @@ app.setdefault("name", "Nexdo")
 app["bundleIdentifier"] = "top.kkworld.nexdo"
 app["developerName"] = app.get("developerName") or "Nexdo Team"
 app["iconURL"] = "$ICON_URL"
+app.setdefault("subtitle", "提醒、清单与闪念记录")
 app.setdefault("localizedDescription", "Nexdo 是一个专注于提醒和闪念管理的应用，支持清单、分组、标签以及 Go API 同步。")
-app.setdefault("screenshotURLs", [])
+app.setdefault("category", "productivity")
+app.setdefault("screenshots", [])
+app.pop("screenshotURLs", None)
 app.setdefault("tintColor", "#126A5A")
 app["appPermissions"] = {
     "entitlements": [],
     "privacy": {
+        "NSMicrophoneUsageDescription": "Nexdo 需要使用麦克风来录制闪念语音。",
+        "NSSpeechRecognitionUsageDescription": "Nexdo 会将你的语音转成文字，方便快速记录闪念。",
         "NSUserNotificationsUsageDescription": "Nexdo 会使用通知来提醒你按时处理事项。"
     },
 }
@@ -139,6 +152,8 @@ versions.insert(
     0,
     {
         "version": "$APP_VERSION",
+        "buildVersion": "$BUILD_VERSION",
+        "minOSVersion": "$MIN_OS_VERSION",
         "date": "$VERSION_ISO",
         "localizedDescription": "$RELEASE_NOTES",
         "downloadURL": "$DOWNLOAD_URL",

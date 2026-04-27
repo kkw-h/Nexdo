@@ -2,24 +2,32 @@
   "name": "Nexdo",
   "identifier": "top.kkworld.nexdo",
   "sourceURL": "https://raw.githubusercontent.com/kkw-h/Nexdo/main/app/altstore/source.json",
+  "subtitle": "Nexdo 官方 AltStore 分发源",
+  "iconURL": "https://raw.githubusercontent.com/kkw-h/Nexdo/main/app/assets/app_icon.png",
   "apps": [
     {
       "name": "Nexdo",
       "bundleIdentifier": "top.kkworld.nexdo",
       "developerName": "Nexdo Team",
+      "subtitle": "提醒、清单与闪念记录",
       "localizedDescription": "Nexdo 是一个专注于提醒和闪念管理的应用，支持清单、分组、标签以及 Go API 同步。",
       "iconURL": "https://raw.githubusercontent.com/kkw-h/Nexdo/main/app/assets/app_icon.png",
-      "screenshotURLs": [],
+      "category": "productivity",
+      "screenshots": [],
       "tintColor": "#126A5A",
       "appPermissions": {
         "entitlements": [],
         "privacy": {
+          "NSMicrophoneUsageDescription": "Nexdo 需要使用麦克风来录制闪念语音。",
+          "NSSpeechRecognitionUsageDescription": "Nexdo 会将你的语音转成文字，方便快速记录闪念。",
           "NSUserNotificationsUsageDescription": "Nexdo 会使用通知来提醒你按时处理事项。"
         }
       },
       "versions": [
         {
           "version": "1.1.2",
+          "buildVersion": "25",
+          "minOSVersion": "13.0",
           "date": "2026-04-27T10:07:46Z",
           "localizedDescription": "Nexdo 1.1.2 发布",
           "downloadURL": "https://github.com/kkw-h/Nexdo/releases/download/v1.1.2/Nexdo-AltStore-1.1.2.ipa",

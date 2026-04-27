@@ -58,6 +58,7 @@ export const reminderCandidateSchema = z.object({
   listName: z.string().trim().max(200).nullable().optional(),
   groupName: z.string().trim().max(200).nullable().optional(),
   tags: z.array(z.string().trim().max(100)).optional(),
+  aliases: z.array(z.string().trim().max(100)).optional(),
 });
 
 export const quickNoteCandidateSchema = z.object({

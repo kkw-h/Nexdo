@@ -32,7 +32,7 @@ func Load() Config {
 		Addr:              getenv("APP_ADDR", ":8080"),
 		DatabaseURL:       getenv("DATABASE_URL", "sqlite://file:nexdo.db?_foreign_keys=on"),
 		AIServiceBaseURL:  getenv("AI_SERVICE_BASE_URL", "http://localhost:3030"),
-		AIServiceTimeout:  getDuration("AI_SERVICE_TIMEOUT_SECONDS", 20),
+		AIServiceTimeout:  getDuration("AI_SERVICE_TIMEOUT_SECONDS", 60),
 		AIConfirmTTL:      getDuration("AI_CONFIRM_TTL_SECONDS", 600),
 		JWTAccessSecret:   getenv("JWT_ACCESS_SECRET", "dev-access-secret"),
 		JWTRefreshSecret:  getenv("JWT_REFRESH_SECRET", "dev-refresh-secret"),

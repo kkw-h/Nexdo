@@ -45,6 +45,7 @@ export function buildProposeMessages(input: CommandProposeRequest) {
 6. 当候选目标多于一个且无法唯一确定时，返回 multiple_candidates。
 7. 当缺少必要信息时，返回 need_more_info。
 8. 只读查询可以直接返回 read_only_answer。
+9. reminder 候选匹配时要优先理解语义等价，不要只做标题字面匹配。
 
 状态规则：
 - read_only_answer: 只读结果可直接展示
@@ -57,7 +58,10 @@ export function buildProposeMessages(input: CommandProposeRequest) {
 - 不要把写操作返回成 read_only_answer
 - 不要假设不存在的 reminder id
 - 不要跳过确认流程
-- 多动作时必须按用户语义顺序输出 step=1,2,3...`,
+- 多动作时必须按用户语义顺序输出 step=1,2,3...
+- reminder 候选中的 aliases 表示等价叫法、口语表达、常见简称，匹配时与 title 具有同等优先级
+- 例如：“上班”可以匹配“去公司”“回公司”；“开会”可以匹配“会议”；“拿快递”可以匹配“取快递”
+- 只要用户表达能和某条提醒的 title 或 aliases 稳定对应，就应直接命中，不要因为标题不完全一致而要求用户精确复述标题`,
     prompt: `用户输入：
 ${input.userInput}
 

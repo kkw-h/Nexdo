@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -131,6 +132,7 @@ func (a *Application) routes() *gin.Engine {
 		authorized.GET("/quick-notes/:id/audio", a.wrap(a.handleQuickNoteAudio))
 		authorized.POST("/quick-notes/:id/convert", a.wrap(a.handleConvertQuickNote))
 		authorized.POST("/ai/commands/resolve", a.wrap(a.handleResolveAICommand))
+		authorized.POST("/ai/commands/resolve/stream", a.handleResolveAICommandStream)
 		authorized.POST("/ai/commands/confirmations/verify", a.wrap(a.handleVerifyAIConfirmation))
 		authorized.POST("/ai/commands/confirmations/execute", a.wrap(a.handleExecuteAIConfirmation))
 	}
@@ -146,12 +148,44 @@ func (a *Application) wrap(handler func(*gin.Context) error) gin.HandlerFunc {
 }
 
 func (a *Application) renderError(c *gin.Context, err error) {
+	a.logAIError("http_error", c, err)
 	var appErr *AppError
 	if errors.As(err, &appErr) {
 		response.Fail(c, appErr.Status, appErr.Code, appErr.Message, appErr.Detail)
 		return
 	}
 	response.Fail(c, 500, 50000, "服务器内部错误", err.Error())
+}
+
+func (a *Application) logAIEvent(event string, c *gin.Context, detail string) {
+	userID, _ := c.Get("userID")
+	deviceID, _ := c.Get("deviceID")
+	log.Printf(
+		"[AI] event=%s method=%s path=%s user_id=%v device_id=%v detail=%s",
+		event,
+		c.Request.Method,
+		c.FullPath(),
+		userID,
+		deviceID,
+		detail,
+	)
+}
+
+func (a *Application) logAIError(event string, c *gin.Context, err error) {
+	if err == nil {
+		return
+	}
+	userID, _ := c.Get("userID")
+	deviceID, _ := c.Get("deviceID")
+	log.Printf(
+		"[AI] event=%s method=%s path=%s user_id=%v device_id=%v err=%v",
+		event,
+		c.Request.Method,
+		c.FullPath(),
+		userID,
+		deviceID,
+		err,
+	)
 }
 
 func (a *Application) authMiddleware() gin.HandlerFunc {

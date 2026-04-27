@@ -4,6 +4,17 @@ type aiCommandResolveRequest struct {
 	Input string `json:"input"`
 }
 
+type aiCommandStreamStatusPayload struct {
+	Stage   string `json:"stage"`
+	Message string `json:"message"`
+}
+
+type aiCommandStreamErrorPayload struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Detail  string `json:"detail,omitempty"`
+}
+
 type aiCommandClassifyRequest struct {
 	UserInput string `json:"userInput"`
 	Timezone  string `json:"timezone"`
@@ -35,6 +46,7 @@ type aiCommandReminderCandidate struct {
 	ListName  *string  `json:"listName,omitempty"`
 	GroupName *string  `json:"groupName,omitempty"`
 	Tags      []string `json:"tags,omitempty"`
+	Aliases   []string `json:"aliases,omitempty"`
 }
 
 type aiCommandQuickNoteCandidate struct {
@@ -80,14 +92,23 @@ type aiCommandProposalPayload struct {
 }
 
 type aiCommandPlanStep struct {
-	Step       int            `json:"step"`
-	Summary    string         `json:"summary"`
-	Action     string         `json:"action"`
-	TargetType string         `json:"targetType"`
-	TargetIDs  []string       `json:"targetIds"`
-	Patch      map[string]any `json:"patch"`
-	Reason     string         `json:"reason"`
-	RiskLevel  string         `json:"riskLevel"`
+	Step         int                    `json:"step"`
+	Summary      string                 `json:"summary"`
+	Action       string                 `json:"action"`
+	TargetType   string                 `json:"targetType"`
+	TargetIDs    []string               `json:"targetIds"`
+	Patch        map[string]any         `json:"patch"`
+	Reason       string                 `json:"reason"`
+	RiskLevel    string                 `json:"riskLevel"`
+	PreviewItems []aiCommandPreviewItem `json:"previewItems,omitempty"`
+}
+
+type aiCommandPreviewItem struct {
+	TargetID string            `json:"targetId"`
+	Title    string            `json:"title"`
+	Action   string            `json:"action"`
+	Before   map[string]string `json:"before,omitempty"`
+	After    map[string]string `json:"after,omitempty"`
 }
 
 type aiCommandProposalResult struct {

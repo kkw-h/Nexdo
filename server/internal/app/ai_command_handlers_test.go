@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -103,6 +104,18 @@ func TestResolveAICommandRequiresConfirmationForWrite(t *testing.T) {
 	}
 	if payload.Data.Result.Proposal == nil || payload.Data.Result.Proposal.Action != "delete_reminder" {
 		t.Fatalf("expected delete proposal, got %+v", payload.Data.Result.Proposal)
+	}
+	if len(payload.Data.Result.Plan) != 1 {
+		t.Fatalf("expected synthetic confirmation plan, got %+v", payload.Data.Result.Plan)
+	}
+	if len(payload.Data.Result.Plan[0].PreviewItems) != 1 {
+		t.Fatalf("expected one preview item, got %+v", payload.Data.Result.Plan[0].PreviewItems)
+	}
+	if payload.Data.Result.Plan[0].PreviewItems[0].Before["标题"] != "产品会议" {
+		t.Fatalf("unexpected preview before payload: %+v", payload.Data.Result.Plan[0].PreviewItems[0])
+	}
+	if payload.Data.Result.Plan[0].PreviewItems[0].After["状态"] != "已删除" {
+		t.Fatalf("unexpected preview after payload: %+v", payload.Data.Result.Plan[0].PreviewItems[0])
 	}
 	if payload.Data.ContextSummary.RemindersLoaded == 0 {
 		t.Fatalf("expected reminders to be loaded, got %+v", payload.Data.ContextSummary)
@@ -318,6 +331,16 @@ func TestExecuteAIConfirmationUpdatesReminder(t *testing.T) {
 		Data aiCommandResolveResponse `json:"data"`
 	}
 	decodeBody(t, rec.Body.Bytes(), &payload)
+	if len(payload.Data.Result.Plan) != 1 || len(payload.Data.Result.Plan[0].PreviewItems) != 1 {
+		t.Fatalf("expected update preview items, got %+v", payload.Data.Result.Plan)
+	}
+	preview := payload.Data.Result.Plan[0].PreviewItems[0]
+	if preview.Before["时间"] != "2026-04-28T15:00:00+08:00" {
+		t.Fatalf("unexpected update preview before: %+v", preview)
+	}
+	if preview.After["时间"] != "2026-04-28T16:00:00+08:00" {
+		t.Fatalf("unexpected update preview after: %+v", preview)
+	}
 
 	executeRec := performJSON(t, app, http.MethodPost, "/api/v1/ai/commands/confirmations/execute", token, `{"token":"`+payload.Data.Confirmation.Token+`"}`)
 	if executeRec.Code != http.StatusOK {
@@ -336,6 +359,275 @@ func TestExecuteAIConfirmationUpdatesReminder(t *testing.T) {
 	decodeBody(t, getRec.Body.Bytes(), &getPayload)
 	if getPayload.Data.DueAt != "2026-04-28T16:00:00+08:00" {
 		t.Fatalf("expected reminder due_at updated, got %+v", getPayload.Data)
+	}
+}
+
+func TestExecuteAIConfirmationCreatesReminderWithAliasPatchFields(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name       string
+		patchField string
+	}{
+		{name: "scheduledAt alias", patchField: "scheduledAt"},
+		{name: "datetime alias", patchField: "datetime"},
+		{name: "time alias", patchField: "time"},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var listID string
+			var groupID string
+			mockAI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch r.URL.Path {
+				case "/api/commands/classify":
+					_ = json.NewEncoder(w).Encode(map[string]any{
+						"ok": true,
+						"classification": map[string]any{
+							"intent":                "reminder.create",
+							"operationType":         "write_requires_confirmation",
+							"confidence":            0.97,
+							"summary":               "用户要创建提醒",
+							"missingSlots":          []string{},
+							"entities":              map[string]any{"title": "产品会议"},
+							"nextStep":              "load_context",
+							"clarificationQuestion": nil,
+						},
+					})
+				case "/api/commands/propose":
+					_ = json.NewEncoder(w).Encode(map[string]any{
+						"ok": true,
+						"proposal": map[string]any{
+							"status":                "confirmation_required",
+							"intent":                "reminder.create",
+							"operationType":         "write_requires_confirmation",
+							"requiresConfirmation":  true,
+							"summary":               "准备创建提醒",
+							"userMessage":           "请确认是否创建提醒",
+							"missingSlots":          []string{},
+							"answer":                nil,
+							"clarificationQuestion": nil,
+							"confirmationMessage":   "确认创建提醒吗？",
+							"proposal": map[string]any{
+								"action":     "create_reminder",
+								"targetType": "reminder",
+								"targetIds":  []string{},
+								"patch": map[string]any{
+									"title":       "产品会议",
+									tc.patchField: "2026-04-28T09:00:00+08:00",
+									"listId":      listID,
+									"groupId":     groupID,
+								},
+								"reason":    "测试时间字段别名兼容",
+								"riskLevel": "low",
+							},
+							"candidates": []any{},
+						},
+					})
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer mockAI.Close()
+
+			app := newTestAppWithAIBaseURL(t, mockAI.URL)
+			token := registerTestUser(t, app)
+			listID, groupID = firstListAndGroupIDs(t, app, token)
+
+			resolveRec := performJSON(t, app, http.MethodPost, "/api/v1/ai/commands/resolve", token, `{"input":"明天早上九点提醒我开产品会议"}`)
+			if resolveRec.Code != http.StatusOK {
+				t.Fatalf("resolve status = %d, body = %s", resolveRec.Code, resolveRec.Body.String())
+			}
+			var resolvePayload struct {
+				Data aiCommandResolveResponse `json:"data"`
+			}
+			decodeBody(t, resolveRec.Body.Bytes(), &resolvePayload)
+
+			executeRec := performJSON(t, app, http.MethodPost, "/api/v1/ai/commands/confirmations/execute", token, `{"token":"`+resolvePayload.Data.Confirmation.Token+`"}`)
+			if executeRec.Code != http.StatusOK {
+				t.Fatalf("execute status = %d, body = %s", executeRec.Code, executeRec.Body.String())
+			}
+
+			listRec := performJSON(t, app, http.MethodGet, "/api/v1/reminders", token, "")
+			if listRec.Code != http.StatusOK {
+				t.Fatalf("list status = %d, body = %s", listRec.Code, listRec.Body.String())
+			}
+			var listPayload struct {
+				Data []struct {
+					Title   string `json:"title"`
+					DueAt   string `json:"due_at"`
+					ListID  string `json:"list_id"`
+					GroupID string `json:"group_id"`
+				} `json:"data"`
+			}
+			decodeBody(t, listRec.Body.Bytes(), &listPayload)
+			if len(listPayload.Data) != 1 {
+				t.Fatalf("expected 1 reminder, got %+v", listPayload.Data)
+			}
+			if listPayload.Data[0].DueAt != "2026-04-28T09:00:00+08:00" {
+				t.Fatalf("expected due_at normalized, got %+v", listPayload.Data[0])
+			}
+			if listPayload.Data[0].ListID != listID || listPayload.Data[0].GroupID != groupID {
+				t.Fatalf("expected list/group ids preserved, got %+v", listPayload.Data[0])
+			}
+		})
+	}
+}
+
+func TestExecuteAIConfirmationBatchUpdatesRemindersWithDueAtByID(t *testing.T) {
+	t.Parallel()
+
+	var reminderIDs []string
+	mockAI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/commands/classify":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"ok": true,
+				"classification": map[string]any{
+					"intent":                "reminder.update",
+					"operationType":         "write_requires_confirmation",
+					"confidence":            0.96,
+					"summary":               "用户要批量顺延提醒",
+					"missingSlots":          []string{},
+					"entities":              map[string]any{"scope": "明天全部提醒", "targetDate": "后天"},
+					"nextStep":              "load_context",
+					"clarificationQuestion": nil,
+				},
+			})
+		case "/api/commands/propose":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"ok": true,
+				"proposal": map[string]any{
+					"status":                "confirmation_required",
+					"intent":                "reminder.update",
+					"operationType":         "write_requires_confirmation",
+					"requiresConfirmation":  true,
+					"summary":               "准备批量顺延提醒",
+					"userMessage":           "请确认批量顺延",
+					"missingSlots":          []string{},
+					"answer":                nil,
+					"clarificationQuestion": nil,
+					"confirmationMessage":   "确认将提醒移到后天吗？",
+					"proposal": map[string]any{
+						"action":     "update_reminder",
+						"targetType": "reminder",
+						"targetIds":  reminderIDs,
+						"patch": map[string]any{
+							"dueAtById": map[string]any{
+								reminderIDs[0]: "2026-04-29T09:00:00+08:00",
+								reminderIDs[1]: "2026-04-29T14:00:00+08:00",
+								reminderIDs[2]: "2026-04-29T21:00:00+08:00",
+							},
+							"sourceDate":   "2026-04-28",
+							"targetDate":   "2026-04-29",
+							"preserveTime": true,
+						},
+						"reason":    "测试批量更新时间",
+						"riskLevel": "medium",
+					},
+					"plan": []map[string]any{
+						{
+							"step":       1,
+							"summary":    "批量顺延提醒",
+							"action":     "update_reminder",
+							"targetType": "reminder",
+							"targetIds":  reminderIDs,
+							"patch": map[string]any{
+								"dueAtById": map[string]any{
+									reminderIDs[0]: "2026-04-29T09:00:00+08:00",
+									reminderIDs[1]: "2026-04-29T14:00:00+08:00",
+									reminderIDs[2]: "2026-04-29T21:00:00+08:00",
+								},
+								"sourceDate":   "2026-04-28",
+								"targetDate":   "2026-04-29",
+								"preserveTime": true,
+							},
+							"reason":    "测试批量更新时间",
+							"riskLevel": "medium",
+						},
+					},
+					"candidates": []any{},
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer mockAI.Close()
+
+	app := newTestAppWithAIBaseURL(t, mockAI.URL)
+	token := registerTestUser(t, app)
+	listID, groupID := firstListAndGroupIDs(t, app, token)
+
+	for _, item := range []struct {
+		title string
+		dueAt string
+	}{
+		{title: "产品会议", dueAt: "2026-04-28T09:00:00+08:00"},
+		{title: "客户沟通", dueAt: "2026-04-28T14:00:00+08:00"},
+		{title: "约会", dueAt: "2026-04-28T21:00:00+08:00"},
+	} {
+		rec := performJSON(t, app, http.MethodPost, "/api/v1/reminders", token, `{
+			"title":"`+item.title+`",
+			"due_at":"`+item.dueAt+`",
+			"list_id":"`+listID+`",
+			"group_id":"`+groupID+`"
+		}`)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("create reminder status = %d, body = %s", rec.Code, rec.Body.String())
+		}
+		var payload struct {
+			Data struct {
+				ID string `json:"id"`
+			} `json:"data"`
+		}
+		decodeBody(t, rec.Body.Bytes(), &payload)
+		reminderIDs = append(reminderIDs, payload.Data.ID)
+	}
+
+	resolveRec := performJSON(t, app, http.MethodPost, "/api/v1/ai/commands/resolve", token, `{"input":"把明天所有的行程移到后天，明天我要休息"}`)
+	if resolveRec.Code != http.StatusOK {
+		t.Fatalf("resolve status = %d, body = %s", resolveRec.Code, resolveRec.Body.String())
+	}
+	var resolvePayload struct {
+		Data aiCommandResolveResponse `json:"data"`
+	}
+	decodeBody(t, resolveRec.Body.Bytes(), &resolvePayload)
+
+	executeRec := performJSON(t, app, http.MethodPost, "/api/v1/ai/commands/confirmations/execute", token, `{"token":"`+resolvePayload.Data.Confirmation.Token+`"}`)
+	if executeRec.Code != http.StatusOK {
+		t.Fatalf("execute status = %d, body = %s", executeRec.Code, executeRec.Body.String())
+	}
+
+	listRec := performJSON(t, app, http.MethodGet, "/api/v1/reminders", token, "")
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("list status = %d, body = %s", listRec.Code, listRec.Body.String())
+	}
+	var listPayload struct {
+		Data []struct {
+			ID    string `json:"id"`
+			DueAt string `json:"due_at"`
+		} `json:"data"`
+	}
+	decodeBody(t, listRec.Body.Bytes(), &listPayload)
+	gotDueAtByID := map[string]string{}
+	for _, item := range listPayload.Data {
+		gotDueAtByID[item.ID] = item.DueAt
+	}
+	expected := map[string]string{
+		reminderIDs[0]: "2026-04-29T09:00:00+08:00",
+		reminderIDs[1]: "2026-04-29T14:00:00+08:00",
+		reminderIDs[2]: "2026-04-29T21:00:00+08:00",
+	}
+	for id, dueAt := range expected {
+		if gotDueAtByID[id] != dueAt {
+			t.Fatalf("expected reminder %s due_at=%s, got %s", id, dueAt, gotDueAtByID[id])
+		}
 	}
 }
 
@@ -510,6 +802,142 @@ func TestExecuteAIConfirmationRunsMultiActionPlan(t *testing.T) {
 	if listPayload.Data[0].Title != "约会" || listPayload.Data[0].DueAt != "2026-04-27T21:00:00+08:00" {
 		t.Fatalf("unexpected created reminder: %+v", listPayload.Data[0])
 	}
+}
+
+func TestResolveAICommandStreamEmitsOrderedEvents(t *testing.T) {
+	t.Parallel()
+
+	mockAI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/commands/classify":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"ok": true,
+				"classification": map[string]any{
+					"intent":                "reminder.create",
+					"operationType":         "write_requires_confirmation",
+					"confidence":            0.98,
+					"summary":               "用户要创建提醒",
+					"missingSlots":          []string{},
+					"entities":              map[string]any{"title": "产品会议", "time": "明天早上九点"},
+					"nextStep":              "load_context",
+					"clarificationQuestion": nil,
+				},
+			})
+		case "/api/commands/propose":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"ok": true,
+				"proposal": map[string]any{
+					"status":                "confirmation_required",
+					"intent":                "reminder.create",
+					"operationType":         "write_requires_confirmation",
+					"requiresConfirmation":  true,
+					"summary":               "准备创建提醒",
+					"userMessage":           "请确认是否创建提醒",
+					"missingSlots":          []string{},
+					"answer":                nil,
+					"clarificationQuestion": nil,
+					"confirmationMessage":   "确认创建提醒吗？",
+					"proposal": map[string]any{
+						"action":     "create_reminder",
+						"targetType": "reminder",
+						"targetIds":  []string{},
+						"patch": map[string]any{
+							"title":    "产品会议",
+							"due_at":   "2026-04-28T09:00:00+08:00",
+							"list_id":  "list_1",
+							"group_id": "group_1",
+						},
+						"reason":    "测试 SSE 事件链路",
+						"riskLevel": "low",
+					},
+					"candidates": []any{},
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer mockAI.Close()
+
+	app := newTestAppWithAIBaseURL(t, mockAI.URL)
+	token := registerTestUser(t, app)
+
+	rec := performJSON(t, app, http.MethodPost, "/api/v1/ai/commands/resolve/stream", token, `{"input":"明天早上九点提醒我开产品会议"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("stream status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if contentType := rec.Header().Get("Content-Type"); !strings.Contains(contentType, "text/event-stream") {
+		t.Fatalf("expected text/event-stream, got %q", contentType)
+	}
+
+	events := decodeSSEEvents(t, rec.Body.String())
+	if len(events) < 6 {
+		t.Fatalf("expected at least 6 events, got %+v", events)
+	}
+
+	gotNames := make([]string, 0, len(events))
+	for _, event := range events {
+		gotNames = append(gotNames, event.Name)
+	}
+	wantNames := []string{"status", "status", "status", "status", "status", "result", "done"}
+	if !slices.Equal(gotNames, wantNames) {
+		t.Fatalf("unexpected event order: got=%v want=%v body=%s", gotNames, wantNames, rec.Body.String())
+	}
+
+	wantStages := []string{"accepted", "parsing", "loading_context", "planning", "waiting_confirmation"}
+	gotStages := []string{
+		events[0].Data["stage"].(string),
+		events[1].Data["stage"].(string),
+		events[2].Data["stage"].(string),
+		events[3].Data["stage"].(string),
+		events[4].Data["stage"].(string),
+	}
+	if !slices.Equal(gotStages, wantStages) {
+		t.Fatalf("unexpected stages: got=%v want=%v", gotStages, wantStages)
+	}
+
+	resultData := events[5].Data
+	if resultData["mode"] != "confirmation_required" {
+		t.Fatalf("expected confirmation_required, got %+v", resultData)
+	}
+	confirmation, ok := resultData["confirmation"].(map[string]any)
+	if !ok || strings.TrimSpace(confirmation["token"].(string)) == "" {
+		t.Fatalf("expected confirmation token, got %+v", resultData["confirmation"])
+	}
+	doneStage := events[6].Data["stage"]
+	if doneStage != "done" {
+		t.Fatalf("expected done event, got %+v", events[6])
+	}
+}
+
+type sseEvent struct {
+	Name string
+	Data map[string]any
+}
+
+func decodeSSEEvents(t *testing.T, raw string) []sseEvent {
+	t.Helper()
+
+	chunks := strings.Split(strings.TrimSpace(raw), "\n\n")
+	events := make([]sseEvent, 0, len(chunks))
+	for _, chunk := range chunks {
+		lines := strings.Split(strings.TrimSpace(chunk), "\n")
+		event := sseEvent{}
+		for _, line := range lines {
+			if strings.HasPrefix(line, "event: ") {
+				event.Name = strings.TrimSpace(strings.TrimPrefix(line, "event: "))
+				continue
+			}
+			if strings.HasPrefix(line, "data: ") {
+				if err := json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &event.Data); err != nil {
+					t.Fatalf("decode sse data: %v raw=%s", err, line)
+				}
+			}
+		}
+		events = append(events, event)
+	}
+	return events
 }
 
 func newTestAppWithAIBaseURL(t *testing.T, aiBaseURL string) *Application {

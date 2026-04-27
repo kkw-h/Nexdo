@@ -10,6 +10,8 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:nexdo/src/features/quick_notes/data/quick_note_local_data_source.dart';
 import 'package:nexdo/src/features/quick_notes/data/quick_notes_repository.dart';
 import 'package:nexdo/src/features/quick_notes/presentation/quick_notes_page.dart';
+import 'package:nexdo/src/features/ai_commands/data/ai_command_repository.dart';
+import 'package:nexdo/src/features/ai_commands/presentation/ai_command_page.dart';
 
 import '../../../core/device/device_identity.dart';
 import '../../../core/theme/app_theme.dart';
@@ -65,6 +67,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
   QuickNoteLocalDataSource? _quickNoteDataSource;
   QuickNotesRepository? _quickNotesRepository;
   QuickNotesDiagnostics? _quickNotesDiagnostics;
+  AiCommandRepository? _aiCommandRepository;
   Future<List<AuthDevice>>? _profileDevicesFuture;
   ReminderQuery _inboxQuery = _defaultInboxQuery;
   InboxStatusFilter _inboxStatusFilter = InboxStatusFilter.all;
@@ -97,6 +100,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
       _error = null;
       _controller = null;
       _notificationService = null;
+      _aiCommandRepository = null;
       _refreshCountdown = 0;
     });
     await initializeDateFormatting('zh_CN');
@@ -129,6 +133,10 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
           widget.apiClient,
           widget.authRepository,
           _quickNoteDataSource!,
+        );
+        _aiCommandRepository = AiCommandRepository(
+          widget.apiClient,
+          widget.authRepository,
         );
         _profileDevicesFuture = _loadProfileDevices();
       });
@@ -210,7 +218,8 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
     if (controller == null ||
         controller.isLoading ||
         quickNoteDataSource == null ||
-        _quickNotesRepository == null) {
+        _quickNotesRepository == null ||
+        _aiCommandRepository == null) {
       return const Scaffold(
         body: SafeArea(
           child: Padding(
@@ -248,6 +257,15 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
             onOpenCalendar: () => _openCalendarPage(controller),
           ),
           _buildQuickNotesView(_quickNotesRepository!),
+          AiCommandPage(
+            repository: _aiCommandRepository!,
+            embedded: true,
+            onExecuted: () async {
+              await controller.refresh();
+              await _refreshInboxQueryIfNeeded(controller);
+            },
+            onSessionExpired: widget.onLogout,
+          ),
           _buildProfileView(controller),
         ];
         final fabIcon = _selectedNavIndex == 2
@@ -271,7 +289,7 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
 
         return Scaffold(
           backgroundColor: AppThemeScope.of(context).palette.background,
-          floatingActionButton: _selectedNavIndex == 3
+          floatingActionButton: _selectedNavIndex >= 3
               ? null
               : (_selectedNavIndex == 2
                     ? GestureDetector(
@@ -314,6 +332,11 @@ class _ReminderAppShellState extends State<ReminderAppShell> {
                     icon: Icon(Icons.bolt_outlined),
                     selectedIcon: Icon(Icons.bolt_rounded),
                     label: '闪念',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.smart_toy_outlined),
+                    selectedIcon: Icon(Icons.smart_toy_rounded),
+                    label: 'AI',
                   ),
                   NavigationDestination(
                     icon: Icon(Icons.person_outline_rounded),

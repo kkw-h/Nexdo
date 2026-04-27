@@ -34,6 +34,7 @@ class NexdoApiClient {
     Object? body,
     Map<String, String>? headers,
     String? accessToken,
+    Duration? timeout,
   }) async {
     final uri = _buildUri(path, queryParameters);
     final requestHeaders = await _buildHeaders(
@@ -41,9 +42,14 @@ class NexdoApiClient {
       headers: headers,
       hasJsonBody: body != null,
     );
+    final effectiveTimeout = timeout ?? _timeout;
 
     final normalizedMethod = method.toUpperCase().trim();
     final encodedBody = body == null ? null : jsonEncode(body);
+    final startedAt = DateTime.now();
+    developer.log(
+      '[NexdoApiClient] request start method=$normalizedMethod path=$path uri=$uri hasBody=${body != null}',
+    );
 
     http.Response response;
     try {
@@ -51,22 +57,22 @@ class NexdoApiClient {
         case 'GET':
           response = await _httpClient
               .get(uri, headers: requestHeaders)
-              .timeout(_timeout);
+              .timeout(effectiveTimeout);
           break;
         case 'POST':
           response = await _httpClient
               .post(uri, headers: requestHeaders, body: encodedBody)
-              .timeout(_timeout);
+              .timeout(effectiveTimeout);
           break;
         case 'PATCH':
           response = await _httpClient
               .patch(uri, headers: requestHeaders, body: encodedBody)
-              .timeout(_timeout);
+              .timeout(effectiveTimeout);
           break;
         case 'DELETE':
           response = await _httpClient
               .delete(uri, headers: requestHeaders, body: encodedBody)
-              .timeout(_timeout);
+              .timeout(effectiveTimeout);
           break;
         default:
           throw ApiException(
@@ -89,6 +95,10 @@ class NexdoApiClient {
     } on TimeoutException {
       throw const ApiException(statusCode: -1, message: '请求超时，请稍后再试');
     }
+
+    developer.log(
+      '[NexdoApiClient] request done method=$normalizedMethod path=$path status=${response.statusCode} elapsedMs=${DateTime.now().difference(startedAt).inMilliseconds}',
+    );
 
     return _decodeResponse(response);
   }
@@ -151,6 +161,78 @@ class NexdoApiClient {
 
     final response = await http.Response.fromStream(streamedResponse);
     return _decodeResponse(response);
+  }
+
+  Future<Stream<Map<String, dynamic>>> requestSse({
+    required String method,
+    required String path,
+    Map<String, dynamic>? queryParameters,
+    Object? body,
+    Map<String, String>? headers,
+    String? accessToken,
+    Duration? timeout,
+  }) async {
+    final uri = _buildUri(path, queryParameters);
+    final requestHeaders = await _buildHeaders(
+      accessToken: accessToken,
+      headers: headers,
+      hasJsonBody: body != null,
+    );
+    final effectiveTimeout = timeout ?? _timeout;
+    final startedAt = DateTime.now();
+    final request = http.Request(method.toUpperCase().trim(), uri);
+    request.headers.addAll(requestHeaders);
+    if (body != null) {
+      request.body = jsonEncode(body);
+    }
+
+    http.StreamedResponse response;
+    try {
+      response = await _httpClient.send(request).timeout(effectiveTimeout);
+    } on SocketException catch (error, stackTrace) {
+      developer.log(
+        '[NexdoApiClient] SSE 网络不可用: ${error.message}',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      throw ApiException(
+        statusCode: -1,
+        message: '网络不可用，请检查连接: ${error.message}',
+      );
+    } on http.ClientException catch (error) {
+      throw ApiException(statusCode: -1, message: '请求失败: ${error.message}');
+    } on TimeoutException {
+      throw const ApiException(statusCode: -1, message: '请求超时，请稍后再试');
+    }
+
+    developer.log(
+      '[NexdoApiClient] sse connected method=${request.method} path=$path status=${response.statusCode} elapsedMs=${DateTime.now().difference(startedAt).inMilliseconds}',
+    );
+
+    if (response.statusCode >= 400) {
+      final bodyText = await response.stream.bytesToString();
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(bodyText);
+      } catch (_) {
+        decoded = bodyText;
+      }
+      if (decoded is Map<String, dynamic>) {
+        throw ApiException(
+          statusCode: response.statusCode,
+          code: decoded['code'] as int?,
+          message: decoded['message'] as String? ?? '请求失败',
+          details: decoded['error'],
+        );
+      }
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: '请求失败(${response.statusCode})',
+        details: decoded,
+      );
+    }
+
+    return _parseSseResponse(response);
   }
 
   String _normalizeLocalPath(String path) {
@@ -299,6 +381,60 @@ class NexdoApiClient {
     return decoded;
   }
 
+  Stream<Map<String, dynamic>> _parseSseResponse(
+    http.StreamedResponse response,
+  ) async* {
+    String eventName = 'message';
+    final dataLines = <String>[];
+
+    Future<Map<String, dynamic>?> emit() async {
+      if (dataLines.isEmpty) {
+        eventName = 'message';
+        return null;
+      }
+      final rawData = dataLines.join('\n');
+      dataLines.clear();
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(rawData);
+      } catch (_) {
+        decoded = rawData;
+      }
+      final payload = <String, dynamic>{'event': eventName, 'data': decoded};
+      eventName = 'message';
+      return payload;
+    }
+
+    await for (final line
+        in response.stream
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())) {
+      if (line.isEmpty) {
+        final payload = await emit();
+        if (payload != null) {
+          developer.log('[NexdoApiClient] sse event event=${payload['event']}');
+          yield payload;
+        }
+        continue;
+      }
+      if (line.startsWith(':')) {
+        continue;
+      }
+      if (line.startsWith('event:')) {
+        eventName = line.substring(6).trim();
+        continue;
+      }
+      if (line.startsWith('data:')) {
+        dataLines.add(line.substring(5).trimLeft());
+      }
+    }
+    final payload = await emit();
+    if (payload != null) {
+      developer.log('[NexdoApiClient] sse event event=${payload['event']}');
+      yield payload;
+    }
+  }
+
   Uri _buildUri(String path, Map<String, dynamic>? queryParameters) {
     final normalizedBase = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
@@ -322,6 +458,6 @@ class NexdoApiClient {
     if (envBase.isNotEmpty) {
       return envBase;
     }
-    return 'https://nexdo.kkworld.top/api/v1';
+    return 'http://192.168.28.44:8080/api/v1';
   }
 }

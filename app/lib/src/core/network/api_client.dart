@@ -458,6 +458,6 @@ class NexdoApiClient {
     if (envBase.isNotEmpty) {
       return envBase;
     }
-    return 'http://192.168.28.44:8080/api/v1';
+    return 'https://nexdo.kkworld.top/api/v1';
   }
 }

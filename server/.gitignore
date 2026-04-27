@@ -1,0 +1,8 @@
+nexdo.db
+storage/
+.env
+.env.*
+tmp/
+dist/
+bin/
+coverage.out

@@ -1,21 +1,34 @@
-# nexdo
+# Nexdo Monorepo
 
-A new Flutter project.
+Nexdo 现在按 monorepo 结构组织：
 
-## Getting Started
+- `app/`: Flutter 前端，多端应用与 AltStore 打包脚本都在这里
+- `server/`: Go 后端 API 与数据库迁移
+- `ai-service/`: 预留的 AI 服务目录
+- `docs/`: 仓库级文档
 
-This project is a starting point for a Flutter application.
+## 常用命令
 
-A few resources to get you started if this is your first Flutter project:
+前端：
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+cd app
+flutter pub get
+flutter run -d macos
+flutter test
+flutter analyze
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+后端：
 
-## AltStore 安装
+```bash
+cd server
+go run ./cmd/api
+go test ./...
+```
 
-如果希望通过 AltStore/AltServer 在 iPhone 或 iPad 上侧载 Nexdo，可以参考 `docs/ALTSTORE.md`。该文档包含打包 `.ipa`、导入 AltStore 以及配置 AltStore Source 的完整步骤。
+AltStore 打包：
+
+```bash
+./app/scripts/build_altstore_ipa.sh
+```

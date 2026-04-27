@@ -1,14 +1,14 @@
 {
   "name": "Nexdo",
   "identifier": "top.kkworld.nexdo",
-  "sourceURL": "https://raw.githubusercontent.com/kkw-h/Nexdo/main/altstore/source.json",
+  "sourceURL": "https://raw.githubusercontent.com/kkw-h/Nexdo/main/app/altstore/source.json",
   "apps": [
     {
       "name": "Nexdo",
       "bundleIdentifier": "top.kkworld.nexdo",
       "developerName": "Nexdo Team",
       "localizedDescription": "Nexdo 是一个专注于提醒和闪念管理的应用，支持清单、分组、标签以及 Go API 同步。",
-      "iconURL": "https://raw.githubusercontent.com/kkw-h/Nexdo/main/assets/app_icon.png",
+      "iconURL": "https://raw.githubusercontent.com/kkw-h/Nexdo/main/app/assets/app_icon.png",
       "screenshotURLs": [],
       "tintColor": "#126A5A",
       "appPermissions": {

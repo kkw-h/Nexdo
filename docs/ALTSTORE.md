@@ -10,31 +10,31 @@
 
 ## 1. 构建 AltStore 版本 `.ipa`
 
-针对 AltStore 场景，推荐使用脚本 `scripts/build_altstore_ipa.sh`：
+针对 AltStore 场景，推荐使用脚本 `app/scripts/build_altstore_ipa.sh`：
 
 ```bash
-# 默认会根据 pubspec.yaml 的 version 自动读取版本，并假设 Git Tag 为 v<version>
-./scripts/build_altstore_ipa.sh
+# 默认会根据 app/pubspec.yaml 的 version 自动读取版本，并假设 Git Tag 为 v<version>
+./app/scripts/build_altstore_ipa.sh
 
 # 如果 Release 使用其他标签，可显式指定
-./scripts/build_altstore_ipa.sh --tag release-2026-04-13
+./app/scripts/build_altstore_ipa.sh --tag release-2026-04-13
 ```
 
 脚本会执行以下动作：
 
 1. 执行 `flutter pub get` 与 `flutter build ios --release --no-codesign`。
 2. 将 `build/ios/iphoneos/Runner.app` 打包为 `build/altstore/Nexdo-AltStore-<version>.ipa`。
-3. 根据构建结果更新 `altstore/source.json`：生成符合 AltStore Source 规范的 `versions` 数组，并写入下载 URL（默认 `https://github.com/kkw-h/Nexdo/releases/download/v<version>/...`）与文件大小。
+3. 根据构建结果更新 `app/altstore/source.json`：生成符合 AltStore Source 规范的 `versions` 数组，并写入下载 URL（默认 `https://github.com/kkw-h/Nexdo/releases/download/v<version>/...`）与文件大小。
 
 脚本结束后会打印：
 
 - IPA 的本地路径（供 AltStore 手动加载或上传 Release）。
 - 预期的 GitHub Release 标签与下载 URL。
-- `source.json` 的托管地址（默认 `https://raw.githubusercontent.com/kkw-h/Nexdo/main/altstore/source.json`，可通过 `ALTSTORE_SOURCE_URL` 环境变量覆盖）。
+- `source.json` 的托管地址（默认 `https://raw.githubusercontent.com/kkw-h/Nexdo/main/app/altstore/source.json`，可通过 `ALTSTORE_SOURCE_URL` 环境变量覆盖）。
 
 若需自定义版本说明，可在执行脚本前设置 `ALTSTORE_RELEASE_NOTES="更新内容..."`，该内容会写入 Source JSON 中最新版本的 `localizedDescription` 字段。
 
-> 若仅需一个通用的无签名 IPA，可继续使用 `scripts/build_ipa_nosign.sh`。
+> 若仅需一个通用的无签名 IPA，可继续使用 `app/scripts/build_ipa_nosign.sh`。
 
 ## 2. 使用 AltStore 安装
 
@@ -48,7 +48,7 @@
 如果想要让他人通过 AltStore 的「Sources」自动获取更新，现在可以直接复用仓库内的配置：
 
 1. 在 GitHub 上创建/更新 Release（标签需与 `build_altstore_ipa.sh` 输出一致），上传 `build/altstore/Nexdo-AltStore-<version>.ipa`。
-2. 将 `altstore/source.json` 托管在公开地址（推荐使用 GitHub Raw：`https://raw.githubusercontent.com/kkw-h/Nexdo/main/altstore/source.json`，或上传到自己的静态站点）。
+2. 将 `app/altstore/source.json` 托管在公开地址（推荐使用 GitHub Raw：`https://raw.githubusercontent.com/kkw-h/Nexdo/main/app/altstore/source.json`，或上传到自己的静态站点）。
 3. AltStore 中打开「Settings -> Sources -> +」，填入上面的 Source URL，即可自动展示 Nexdo，并根据 GitHub Release 下载最新 IPA。
 
 `source.json` 中的 `downloadURL` 默认指向 `https://github.com/kkw-h/Nexdo/releases/download/<tag>/Nexdo-AltStore-<version>.ipa`。如需将文件放在其他 CDN/对象存储，可手动修改该字段或在执行脚本前设置 `ALTSTORE_DOWNLOAD_BASE` 环境变量。

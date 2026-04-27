@@ -1,0 +1,11 @@
+.git
+.gitignore
+.DS_Store
+nexdo.db
+storage
+tmp
+dist
+bin
+coverage.out
+*.log
+docs

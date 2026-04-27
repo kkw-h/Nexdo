@@ -1,0 +1,1 @@
+ALTER TABLE devices ADD COLUMN ip_address TEXT NOT NULL DEFAULT '';
